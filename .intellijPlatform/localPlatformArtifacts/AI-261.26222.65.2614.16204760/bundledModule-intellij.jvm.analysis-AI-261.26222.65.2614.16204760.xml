@@ -1,0 +1,19 @@
+<?xml version='1.1' ?>
+<ivy-module version="2.0">
+  <info organisation="bundledModule" module="intellij.jvm.analysis" revision="AI-261.26222.65.2614.16204760" />
+  <configurations>
+    <conf name="default" visibility="public" />
+  </configurations>
+  <publications>
+    <artifact name="intellij.jvm.analysis" ext="jar" conf="default" url="plugins/java/lib/modules" />
+  </publications>
+  <dependencies>
+    <dependency org="bundledPlugin" name="com.intellij.java" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.core" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.uast" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.analysis" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.java.analysis" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.uast.ide" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.backend" rev="AI-261.26222.65.2614.16204760" />
+  </dependencies>
+</ivy-module>

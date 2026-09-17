@@ -1,0 +1,14 @@
+<?xml version='1.1' ?>
+<ivy-module version="2.0">
+  <info organisation="bundledModule" module="fleet.reporting.shared" revision="AI-261.26222.65.2614.16204760" />
+  <configurations>
+    <conf name="default" visibility="public" />
+  </configurations>
+  <publications>
+    <artifact name="fleet.reporting.shared" ext="jar" conf="default" url="lib" />
+  </publications>
+  <dependencies>
+    <dependency org="bundledModule" name="fleet.multiplatform.shims" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="fleet.reporting.api" rev="AI-261.26222.65.2614.16204760" />
+  </dependencies>
+</ivy-module>

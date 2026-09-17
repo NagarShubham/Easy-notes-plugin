@@ -1,0 +1,26 @@
+<?xml version='1.1' ?>
+<ivy-module version="2.0">
+  <info organisation="bundledModule" module="intellij.java.impl.refactorings" revision="AI-261.26222.65.2614.16204760" />
+  <configurations>
+    <conf name="default" visibility="public" />
+  </configurations>
+  <publications>
+    <artifact name="intellij.java.impl.refactorings" ext="jar" conf="default" url="plugins/java/lib/modules" />
+  </publications>
+  <dependencies>
+    <dependency org="bundledPlugin" name="com.intellij.java" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.diff" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.lang" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.lang.core" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.lang.impl" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.ide.impl" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.projectModel" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.xml.psi" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.backend" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.java" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.java.codeserver.core" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.java.impl" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.java.indexing" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.jsp" rev="AI-261.26222.65.2614.16204760" />
+  </dependencies>
+</ivy-module>

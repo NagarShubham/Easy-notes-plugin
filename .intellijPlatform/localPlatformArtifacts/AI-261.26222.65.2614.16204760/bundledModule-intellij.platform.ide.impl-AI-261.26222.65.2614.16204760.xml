@@ -1,0 +1,73 @@
+<?xml version='1.1' ?>
+<ivy-module version="2.0">
+  <info organisation="bundledModule" module="intellij.platform.ide.impl" revision="AI-261.26222.65.2614.16204760" />
+  <configurations>
+    <conf name="default" visibility="public" />
+  </configurations>
+  <publications>
+    <artifact name="intellij.platform.ide.impl" ext="jar" conf="default" url="lib" />
+  </publications>
+  <dependencies>
+    <dependency org="bundledModule" name="fleet.andel" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="fleet.util.core" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.aalto.xml" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.asm" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.blockmap" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.bouncy.castle.provider" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.caffeine" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.classgraph" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.commons.imaging" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.fastutil" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.gson" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.guava" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.hash4j" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.hdr.histogram" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.http.client" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.icu4j" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.imgscalr" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.jackson" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.jackson.databind" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.jackson.jr.objects" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.jbr" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.jcef" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.jgoodies.common" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.jgoodies.forms" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.jsoup" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.jvm.native.trusted.roots" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.kotlin.reflect" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.kotlinx.collections.immutable" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.kotlinx.coroutines.core" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.kotlinx.serialization.core" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.kotlinx.serialization.json" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.lz4" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.miglayout.swing" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.netty.buffer" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.netty.codec.http" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.oro.matcher" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.protobuf" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.pty4j" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.rd.core" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.stream" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.swingx" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.libraries.winp" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.analysis" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.analysis.impl" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.builtInServer" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.core" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.core.impl" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.core.ui" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.diff" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.eel.impl" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.ide" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.ide.concurrency" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.kernel" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.lang" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.lang.core" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.locking.impl" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.projectModel" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.projectModel.impl" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.util.ex" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.util.ui" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.welcomeScreen.impl" rev="AI-261.26222.65.2614.16204760" />
+  </dependencies>
+</ivy-module>

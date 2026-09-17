@@ -1,0 +1,34 @@
+<?xml version='1.1' ?>
+<ivy-module version="2.0">
+  <info organisation="bundledModule" module="intellij.java.compiler.impl" revision="AI-261.26222.65.2614.16204760" />
+  <configurations>
+    <conf name="default" visibility="public" />
+  </configurations>
+  <publications>
+    <artifact name="intellij.java.compiler.impl" ext="jar" conf="default" url="plugins/java/lib/modules" />
+  </publications>
+  <dependencies>
+    <dependency org="bundledPlugin" name="com.intellij.java" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.java.compiler" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.java.indexing" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.analysis" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.core" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.lang.core" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.projectModel" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.java" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.ide.impl" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.vcs" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.ide" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.lang.impl" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.jsp" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.java.impl" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.java.analysis.impl" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.builtInServer.impl" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.vcs.impl" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.externalSystem" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.core.ui" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.xml.psi" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.jps.build" rev="AI-261.26222.65.2614.16204760" />
+    <dependency org="bundledModule" name="intellij.platform.backend" rev="AI-261.26222.65.2614.16204760" />
+  </dependencies>
+</ivy-module>
