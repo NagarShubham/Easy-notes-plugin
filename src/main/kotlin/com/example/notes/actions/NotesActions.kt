@@ -2,12 +2,17 @@ package com.example.notes.actions
 
 import com.example.notes.ui.NotesPanel
 import com.intellij.openapi.actionSystem.ActionUpdateThread
-import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.project.DumbAwareAction
 import javax.swing.JComponent
 
-/** Base action that resolves the [NotesPanel] from the event data context. */
-abstract class NotesPanelAction : AnAction() {
+/**
+ * Base action that resolves the [NotesPanel] from the event data context.
+ *
+ * Extends [DumbAwareAction] so the note toolbar stays usable while the IDE is
+ * indexing (notes are unrelated to indexes).
+ */
+abstract class NotesPanelAction : DumbAwareAction() {
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 

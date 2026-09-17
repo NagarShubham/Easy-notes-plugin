@@ -1,0 +1,20 @@
+# Gradle
+.gradle/
+build/
+.kotlin/
+
+# IntelliJ Platform Gradle Plugin (downloaded IDE + artifacts)
+.intellijPlatform/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Local, machine-specific config (paths, SDK location)
+local.properties
+
+# OS noise
+.DS_Store

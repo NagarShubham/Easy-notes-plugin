@@ -1,11 +1,11 @@
 <idea-plugin>
     <id>com.example.notes</id>
-    <name>Notes</name>
+    <name>Quick Notes</name>
     <version>1.0.0</version>
     <vendor email="support@example.com" url="https://example.com">Example</vendor>
 
     <description><![CDATA[
-        <h2>Notes</h2>
+        <h2>Quick Notes</h2>
         <p>Create, manage, and organize notes directly inside the IDE.</p>
         <ul>
             <li>Create, edit, and auto-save notes that persist across IDE sessions.</li>
@@ -24,9 +24,9 @@
 
     <extensions defaultExtensionPoint="true" defaultExtensionNs="com.intellij">
         <applicationService serviceImplementation="com.example.notes.service.NotesService"/>
-        <toolWindow id="Notes"
+        <toolWindow id="Quick Notes"
                     anchor="right"
-                    icon="AllIcons.Toolwindows.Notifications"
+                    icon="/icons/toolwindow.svg"
                     factoryClass="com.example.notes.ui.NotesToolWindowFactory"/>
     </extensions>
 
@@ -59,7 +59,7 @@
                 class="com.example.notes.actions.DeleteNoteAction"
                 text="Delete Note"
                 description="Delete the current note"
-                icon="AllIcons.General.Remove">
+                icon="/icons/delete.svg">
             <keyboard-shortcut keymap="$default" first-keystroke="alt shift D"/>
         </action>
 
@@ -87,8 +87,6 @@
 
         <!-- Toolbar shown in the detail (editor) view. -->
         <group id="Notes.DetailToolbar">
-            <reference ref="Notes.List"/>
-            <separator/>
             <reference ref="Notes.Prev"/>
             <reference ref="Notes.Next"/>
             <separator/>
@@ -96,6 +94,7 @@
             <reference ref="Notes.Delete"/>
             <separator/>
             <reference ref="Notes.Search"/>
+            <reference ref="Notes.List"/>
             <reference ref="Notes.More"/>
         </group>
 

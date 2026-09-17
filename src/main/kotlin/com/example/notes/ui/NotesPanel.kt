@@ -20,13 +20,17 @@ import com.intellij.openapi.fileChooser.FileChooserDescriptor
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.Messages
+import com.intellij.openapi.ui.ValidationInfo
 import com.intellij.openapi.ui.popup.JBPopup
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.util.Disposer
+import com.intellij.ui.CheckBoxList
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.JBColor
 import com.intellij.ui.SearchTextField
+import com.intellij.ui.awt.RelativePoint
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBList
 import com.intellij.ui.components.JBScrollPane
@@ -92,7 +96,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     private var loading = false
     private var searchQuery: String = ""
     private var favoritesOnly: Boolean = false
-    private var sortKey: SortKey = SortKey.MODIFIED
+    private var sortKey: SortKey = SortKey.CREATED
 
     private val disposable = Disposer.newDisposable("NotesPanel")
     private val saveAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, disposable)
@@ -189,7 +193,15 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         })
 
         notesList.addMouseListener(object : MouseAdapter() {
+            override fun mousePressed(e: MouseEvent) {
+                if (e.isPopupTrigger) showListContextMenu(e)
+            }
+
             override fun mouseReleased(e: MouseEvent) {
+                if (e.isPopupTrigger) {
+                    showListContextMenu(e)
+                    return
+                }
                 if (e.button == MouseEvent.BUTTON1 && e.clickCount == 1 &&
                     !e.isShiftDown && !e.isControlDown && !e.isMetaDown
                 ) {
@@ -260,7 +272,8 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         }
         val base: Comparator<Note> = when (sortKey) {
             SortKey.TITLE -> compareBy { it.displayTitle().lowercase() }
-            SortKey.CREATED -> compareByDescending { it.createdAt }
+            // FIFO: oldest created first, newest appended at the bottom.
+            SortKey.CREATED -> compareBy { it.createdAt }
             SortKey.MODIFIED -> compareByDescending { it.modifiedAt }
         }
         return notes.sortedWith(compareByDescending<Note> { it.pinned }.then(base))
@@ -307,6 +320,72 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         if (Messages.showYesNoDialog(project, msg, "Delete Note", "Delete", "Cancel", Messages.getWarningIcon()) != Messages.YES) return
         if (selected.any { it.id == currentId }) currentId = null
         service.deleteNotes(selected.map { it.id })
+    }
+
+    /**
+     * List-screen delete: lets the user tick the specific notes to remove in a
+     * checkbox dialog (pre-checking any currently highlighted rows), rather than
+     * deleting everything at once.
+     */
+    private fun deleteWithSelection() {
+        val notes = computeOrdered()
+        if (notes.isEmpty()) {
+            Messages.showInfoMessage(project, "There are no notes to delete.", "Delete Notes")
+            return
+        }
+        val preselected = notesList.selectedValuesList.map { it.id }.toSet()
+        val dialog = DeleteNotesDialog(project, notes, preselected)
+        if (!dialog.showAndGet()) return
+        val chosen = dialog.selectedNotes()
+        if (chosen.isEmpty()) return
+        if (chosen.any { it.id == currentId }) currentId = null
+        service.deleteNotes(chosen.map { it.id })
+    }
+
+    /** Deletes every note (respecting no filter), after a single confirmation. */
+    fun deleteAll() {
+        val all = service.getAllNotes()
+        if (all.isEmpty()) {
+            Messages.showInfoMessage(project, "There are no notes to delete.", "Delete All Notes")
+            return
+        }
+        if (Messages.showYesNoDialog(
+                project,
+                "Delete all ${all.size} note(s)? This cannot be undone.",
+                "Delete All Notes", "Delete All", "Cancel", Messages.getWarningIcon()
+            ) != Messages.YES
+        ) return
+        currentId = null
+        service.deleteNotes(all.map { it.id })
+    }
+
+    private fun showListContextMenu(e: MouseEvent) {
+        val idx = notesList.locationToIndex(e.point)
+        val bounds = if (idx >= 0) notesList.getCellBounds(idx, idx) else null
+        val onItem = idx >= 0 && bounds != null && bounds.contains(e.point)
+        if (onItem && !notesList.isSelectedIndex(idx)) {
+            notesList.selectedIndex = idx
+        }
+
+        val selected = notesList.selectedValuesList
+        val group = DefaultActionGroup()
+        if (selected.size == 1) {
+            group.add(action("Open") { openDetail(selected[0]) })
+        }
+        if (selected.isNotEmpty()) {
+            val label = if (selected.size == 1) "Delete" else "Delete ${selected.size} Selected"
+            group.add(action(label) { deleteSelectedInList() })
+        }
+        if (service.getAllNotes().isNotEmpty()) {
+            if (group.childrenCount > 0) group.addSeparator()
+            group.add(action("Delete All Notes...") { deleteAll() })
+        }
+        if (group.childrenCount == 0) return
+
+        JBPopupFactory.getInstance().createActionGroupPopup(
+            null, group, DataContext.EMPTY_CONTEXT,
+            JBPopupFactory.ActionSelectionAid.MNEMONICS, true
+        ).show(RelativePoint(e))
     }
     // endregion
 
@@ -396,7 +475,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
     fun deleteContextual() {
         if (view == View.LIST) {
-            deleteSelectedInList()
+            deleteWithSelection()
             return
         }
         val note = currentNote() ?: return
@@ -437,7 +516,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     fun hasNotesForNav(): Boolean = view == View.DETAIL && computeOrdered().isNotEmpty()
 
     fun canDelete(): Boolean =
-        if (view == View.LIST) !notesList.isSelectionEmpty else currentNote() != null
+        if (view == View.LIST) service.getAllNotes().isNotEmpty() else currentNote() != null
     // endregion
 
     // region "more" menu
@@ -471,6 +550,10 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         group.addSeparator()
         group.add(action("Import Notes...") { importNotes() })
         group.add(action("Export Notes...") { exportNotes() })
+        if (service.getAllNotes().isNotEmpty()) {
+            group.addSeparator()
+            group.add(action("Delete All Notes...") { deleteAll() })
+        }
 
         JBPopupFactory.getInstance().createActionGroupPopup(
             "Notes Options", group, DataContext.EMPTY_CONTEXT,
@@ -669,4 +752,44 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
         fun from(e: AnActionEvent): NotesPanel? = e.getData(NOTES_PANEL_KEY)
     }
+}
+
+/**
+ * A checkbox dialog for choosing which specific notes to delete from the list
+ * screen. OK ("Delete") stays disabled until at least one note is checked.
+ */
+private class DeleteNotesDialog(
+    project: Project?,
+    private val notes: List<Note>,
+    preselected: Set<String>
+) : DialogWrapper(project) {
+
+    private val checkBoxList = CheckBoxList<Note>()
+
+    init {
+        title = "Delete Notes"
+        setOKButtonText("Delete")
+        notes.forEach { checkBoxList.addItem(it, it.displayTitle(), it.id in preselected) }
+        init()
+    }
+
+    override fun createCenterPanel(): JComponent {
+        val panel = JPanel(BorderLayout())
+        val hint = JBLabel("Select the notes you want to delete:")
+        hint.border = JBUI.Borders.emptyBottom(6)
+        panel.add(hint, BorderLayout.NORTH)
+        val scroll = JBScrollPane(checkBoxList)
+        scroll.preferredSize = Dimension(360, 320)
+        panel.add(scroll, BorderLayout.CENTER)
+        return panel
+    }
+
+    fun selectedNotes(): List<Note> = notes.filter { checkBoxList.isItemSelected(it) }
+
+    override fun doValidate(): ValidationInfo? =
+        if (notes.none { checkBoxList.isItemSelected(it) }) {
+            ValidationInfo("Select at least one note to delete.")
+        } else {
+            null
+        }
 }
