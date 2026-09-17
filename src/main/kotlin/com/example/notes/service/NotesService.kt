@@ -45,6 +45,12 @@ class NotesService : PersistentStateComponent<NotesService.State> {
     /** Returns a snapshot copy of all notes (unordered). */
     fun getAllNotes(): List<Note> = state.notes.toList()
 
+    /** Cheap emptiness check that avoids copying the backing list. */
+    fun isEmpty(): Boolean = state.notes.isEmpty()
+
+    /** Cheap note count that avoids copying the backing list. */
+    fun count(): Int = state.notes.size
+
     fun findNote(id: String): Note? = state.notes.firstOrNull { it.id == id }
 
     fun existsById(id: String): Boolean = state.notes.any { it.id == id }

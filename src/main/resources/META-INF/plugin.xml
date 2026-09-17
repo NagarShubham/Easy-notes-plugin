@@ -1,24 +1,54 @@
 <idea-plugin>
-    <id>com.example.notes</id>
+    <id>com.snagar.quicknotes</id>
     <name>Quick Notes</name>
     <version>1.0.0</version>
-    <vendor email="support@example.com" url="https://example.com">Example</vendor>
+    <vendor email="shubham786nagar@gmail.com" url="https://github.com/NagarShubham">Shubham Nagar</vendor>
 
     <description><![CDATA[
-        <h2>Quick Notes</h2>
-        <p>Create, manage, and organize notes directly inside the IDE.</p>
+        <p><b>Quick Notes</b> keeps your thoughts where your code lives. Capture ideas,
+        TODOs, snippets, and meeting notes in a distraction-free notepad docked right
+        inside your IDE &mdash; no context switching, no lost sticky notes.</p>
+
+        <p>Every note is written on a warm, ruled legal-pad editor and <b>saved
+        automatically</b>, so your work is always there when you come back &mdash;
+        across restarts and across every project.</p>
+
+        <h3>Why you'll love it</h3>
         <ul>
-            <li>Create, edit, and auto-save notes that persist across IDE sessions.</li>
-            <li>Dedicated Notes tool window with a searchable, sortable list.</li>
-            <li>Custom titles, per-note background colors, pin and favorite.</li>
-            <li>Quick previous/next navigation with keyboard shortcuts.</li>
-            <li>Delete with confirmation (including bulk delete).</li>
-            <li>Import and export notes as JSON or Markdown.</li>
+            <li>📝 <b>Auto-save that just works</b> &mdash; type freely; notes persist globally across IDE sessions.</li>
+            <li>🗂️ <b>Everything in one place</b> &mdash; a clean, searchable, sortable list with a single-click editor.</li>
+            <li>🎨 <b>Make it yours</b> &mdash; custom titles and per-note background colors from a handy palette.</li>
+            <li>📌 <b>Stay organized</b> &mdash; pin important notes to the top and star your favorites.</li>
+            <li>⚡ <b>Keyboard-first</b> &mdash; create, delete, search, and jump between notes with shortcuts.</li>
+            <li>🧭 <b>Fast navigation</b> &mdash; flip through notes with previous/next controls.</li>
+            <li>🗑️ <b>Safe deletes</b> &mdash; pick exactly which notes to remove, or clear all, always with confirmation.</li>
+            <li>🔁 <b>Own your data</b> &mdash; import and export as <b>JSON</b> or <b>Markdown</b> with smart conflict handling.</li>
+            <li>🌗 <b>Looks right anywhere</b> &mdash; automatic light and dark theme support.</li>
         </ul>
+
+        <p><b>Lightweight &amp; dependency-free</b> &mdash; a tiny plugin with zero bundled
+        third-party libraries, so it stays fast and out of your way.</p>
+
+        <p>Works in all IntelliJ-based IDEs: IntelliJ IDEA, Android Studio, PyCharm,
+        WebStorm, GoLand, PhpStorm, Rider, CLion, and more.</p>
     ]]></description>
 
+    <change-notes><![CDATA[
+        <p><b>1.0.0 &mdash; Initial release</b> 🎉</p>
+        <ul>
+            <li>📝 Ruled legal-pad note editor with automatic saving and global persistence.</li>
+            <li>🗂️ Searchable, sortable notes list with a single-click, single-window editor.</li>
+            <li>🎨 Custom note titles and per-note background colors.</li>
+            <li>📌 Pin notes to the top and ⭐ mark favorites.</li>
+            <li>⚡ Keyboard shortcuts plus previous/next navigation.</li>
+            <li>🗑️ Selective and bulk delete, always with confirmation.</li>
+            <li>🔁 JSON &amp; Markdown import/export with conflict handling.</li>
+            <li>🌗 Light and dark theme support.</li>
+        </ul>
+    ]]></change-notes>
+
     <!-- Minimum platform capabilities. -->
-    <idea-version since-build="241"/>
+    <idea-version since-build="242"/>
 
     <depends>com.intellij.modules.platform</depends>
 

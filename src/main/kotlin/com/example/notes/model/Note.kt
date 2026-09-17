@@ -5,8 +5,9 @@ import java.util.UUID
 /**
  * A single note.
  *
- * This is a plain mutable bean so it can be serialized both by the IntelliJ
- * Platform XML serializer (for persistence) and by Gson (for import/export).
+ * This is a plain mutable bean so it can be serialized by the IntelliJ Platform
+ * XML serializer (for persistence) and mapped by our in-house JSON reader/writer
+ * (for import/export).
  */
 class Note {
     var id: String = UUID.randomUUID().toString()

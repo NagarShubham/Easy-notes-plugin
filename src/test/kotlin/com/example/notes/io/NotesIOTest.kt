@@ -79,6 +79,39 @@ class NotesIOTest {
         assertTrue(parsed[0].createdAt > 0L)
         assertTrue(parsed[0].modifiedAt > 0L)
     }
+
+    @Test
+    fun `json round-trips strings needing escaping`() {
+        val note = Note().apply {
+            title = "Quote \" and \\ backslash"
+            content = "line1\nline2\ttab\r\n\"quoted\""
+        }
+        val parsed = NotesIO.parseJson(NotesIO.noteToJson(note))
+        assertEquals(1, parsed.size)
+        assertEquals(note.title, parsed[0].title)
+        assertEquals(note.content, parsed[0].content)
+    }
+
+    @Test
+    fun `json parses unicode escape and preserves non-ascii`() {
+        val parsed = NotesIO.parseJson("""{"title":"caf\u00e9 \u2605","content":"日本語"}""")
+        assertEquals("café \u2605", parsed[0].title)
+        assertEquals("日本語", parsed[0].content)
+    }
+
+    @Test
+    fun `json preserves large timestamps as long`() {
+        val note = Note().apply { createdAt = 1_700_000_000_000L; modifiedAt = 1_700_000_050_000L }
+        val parsed = NotesIO.parseJson(NotesIO.noteToJson(note))
+        assertEquals(1_700_000_000_000L, parsed[0].createdAt)
+        assertEquals(1_700_000_050_000L, parsed[0].modifiedAt)
+    }
+
+    @Test
+    fun `malformed json yields empty list instead of throwing`() {
+        assertTrue(NotesIO.parseJson("{ not valid json").isEmpty())
+        assertTrue(NotesIO.parseJson("").isEmpty())
+    }
     // endregion
 
     // region color helpers

@@ -15,8 +15,9 @@ repositories {
 }
 
 dependencies {
-    // JSON (de)serialization for import/export. Bundled into the plugin jar.
-    implementation("com.google.code.gson:gson:2.11.0")
+    // No third-party runtime dependencies: JSON import/export uses a small
+    // in-house reader/writer (com.example.notes.io.Json), keeping the plugin
+    // jar tiny and free of bundled libraries.
 
     intellijPlatform {
         // Build against a locally installed IDE. The path is configurable so the
@@ -38,6 +39,19 @@ dependencies {
     // Lightweight unit tests for the pure logic (model / io / service).
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+intellijPlatform {
+    pluginConfiguration {
+        ideaVersion {
+            // UiDataProvider (used by NotesPanel) exists from 2024.2 (242).
+            sinceBuild = "242"
+            // No hard upper bound so the plugin keeps working on newer IDEs.
+            untilBuild = provider { null }
+        }
+    }
+    // Small plugin with no searchable settings: skip the extra build step.
+    buildSearchableOptions = false
 }
 
 tasks.test {

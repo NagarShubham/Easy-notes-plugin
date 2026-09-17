@@ -2,8 +2,6 @@ package com.example.notes.io
 
 import com.example.notes.model.Note
 import com.example.notes.service.NotesService
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonParser
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -31,36 +29,77 @@ data class ImportSummary(
  */
 object NotesIO {
 
-    private val gson = GsonBuilder().setPrettyPrinting().create()
-
     private val isoFormatter: DateTimeFormatter =
         DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss").withZone(ZoneId.systemDefault())
 
     // region JSON
     /** Serializes notes as a backup document: {"version":1,"notes":[...]}. */
-    fun toJsonBackup(notes: List<Note>): String {
-        val root = LinkedHashMap<String, Any>()
-        root["version"] = 1
-        root["notes"] = notes.map { it.copy() }
-        return gson.toJson(root)
+    fun toJsonBackup(notes: List<Note>): String = buildString {
+        append("{\n  \"version\": 1,\n  \"notes\": [")
+        notes.forEachIndexed { i, note ->
+            append(if (i == 0) "\n" else ",\n")
+            appendNote(note, "    ")
+        }
+        if (notes.isNotEmpty()) append("\n  ")
+        append("]\n}")
     }
 
     /** Serializes a single note as a JSON object. */
-    fun noteToJson(note: Note): String = gson.toJson(note.copy())
+    fun noteToJson(note: Note): String = buildString { appendNote(note, "") }
+
+    private fun StringBuilder.appendNote(note: Note, indent: String) {
+        val inner = "$indent  "
+        append(indent).append("{\n")
+        append(inner).append("\"id\": \"").append(Json.escape(note.id)).append("\",\n")
+        append(inner).append("\"title\": \"").append(Json.escape(note.title)).append("\",\n")
+        append(inner).append("\"content\": \"").append(Json.escape(note.content)).append("\",\n")
+        append(inner).append("\"colorRgb\": ").append(note.colorRgb).append(",\n")
+        append(inner).append("\"createdAt\": ").append(note.createdAt).append(",\n")
+        append(inner).append("\"modifiedAt\": ").append(note.modifiedAt).append(",\n")
+        append(inner).append("\"pinned\": ").append(note.pinned).append(",\n")
+        append(inner).append("\"favorite\": ").append(note.favorite).append("\n")
+        append(indent).append("}")
+    }
 
     /**
      * Parses notes from JSON. Accepts a single note object, a bare array of
-     * notes, or a backup object with a "notes" array.
+     * notes, or a backup object with a "notes" array. Malformed input yields an
+     * empty list rather than throwing.
      */
     fun parseJson(text: String): List<Note> {
-        val el = JsonParser.parseString(text)
-        return when {
-            el.isJsonArray -> el.asJsonArray.map { gson.fromJson(it, Note::class.java) }
-            el.isJsonObject && el.asJsonObject.has("notes") ->
-                el.asJsonObject.getAsJsonArray("notes").map { gson.fromJson(it, Note::class.java) }
-            el.isJsonObject -> listOf(gson.fromJson(el, Note::class.java))
+        val root = try {
+            Json.parse(text)
+        } catch (_: JsonException) {
+            return emptyList()
+        }
+        val objects: List<Any?> = when {
+            root is List<*> -> root
+            root is Map<*, *> && root["notes"] is List<*> -> root["notes"] as List<*>
+            root is Map<*, *> -> listOf(root)
             else -> emptyList()
-        }.map { normalize(it) }
+        }
+        return objects.filterIsInstance<Map<*, *>>().map { normalize(noteFromMap(it)) }
+    }
+
+    private fun noteFromMap(map: Map<*, *>): Note {
+        val note = Note()
+        (map["id"] as? String)?.let { note.id = it }
+        (map["title"] as? String)?.let { note.title = it }
+        (map["content"] as? String)?.let { note.content = it }
+        asLong(map["colorRgb"])?.let { note.colorRgb = it.toInt() and 0xFFFFFF }
+        asLong(map["createdAt"])?.let { note.createdAt = it }
+        asLong(map["modifiedAt"])?.let { note.modifiedAt = it }
+        (map["pinned"] as? Boolean)?.let { note.pinned = it }
+        (map["favorite"] as? Boolean)?.let { note.favorite = it }
+        return note
+    }
+
+    private fun asLong(value: Any?): Long? = when (value) {
+        is Long -> value
+        is Int -> value.toLong()
+        is Double -> value.toLong()
+        is String -> value.toLongOrNull()
+        else -> null
     }
     // endregion
 

@@ -47,6 +47,7 @@ import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.io.File
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -100,6 +101,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
     private val disposable = Disposer.newDisposable("NotesPanel")
     private val saveAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, disposable)
+    private val searchAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, disposable)
 
     private val serviceListener = NotesService.NotesChangeListener {
         SwingUtilities.invokeLater { onNotesChanged() }
@@ -187,8 +189,15 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
         listSearch.addDocumentListener(object : DocumentAdapter() {
             override fun textChanged(e: DocumentEvent) {
-                searchQuery = listSearch.text
-                reloadList()
+                // Debounce so we don't re-filter/re-sort on every keystroke.
+                searchAlarm.cancelAllRequests()
+                searchAlarm.addRequest({
+                    val text = listSearch.text
+                    if (text != searchQuery) {
+                        searchQuery = text
+                        reloadList()
+                    }
+                }, 200)
             }
         })
 
@@ -376,7 +385,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
             val label = if (selected.size == 1) "Delete" else "Delete ${selected.size} Selected"
             group.add(action(label) { deleteSelectedInList() })
         }
-        if (service.getAllNotes().isNotEmpty()) {
+        if (!service.isEmpty()) {
             if (group.childrenCount > 0) group.addSeparator()
             group.add(action("Delete All Notes...") { deleteAll() })
         }
@@ -513,10 +522,10 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
     fun isListView(): Boolean = view == View.LIST
 
-    fun hasNotesForNav(): Boolean = view == View.DETAIL && computeOrdered().isNotEmpty()
+    fun hasNotesForNav(): Boolean = view == View.DETAIL && ordered.isNotEmpty()
 
     fun canDelete(): Boolean =
-        if (view == View.LIST) service.getAllNotes().isNotEmpty() else currentNote() != null
+        if (view == View.LIST) !service.isEmpty() else currentNote() != null
     // endregion
 
     // region "more" menu
@@ -550,7 +559,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         group.addSeparator()
         group.add(action("Import Notes...") { importNotes() })
         group.add(action("Export Notes...") { exportNotes() })
-        if (service.getAllNotes().isNotEmpty()) {
+        if (!service.isEmpty()) {
             group.addSeparator()
             group.add(action("Delete All Notes...") { deleteAll() })
         }
@@ -713,8 +722,12 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         val dir = FileChooser.chooseFile(descriptor, project, null) ?: return
         val fileName = if (notes.size == 1) sanitize(notes[0].displayTitle()) + ".json" else "notes-backup.json"
         val target = File(dir.path, fileName)
-        target.writeText(NotesIO.toJsonBackup(notes))
-        Messages.showInfoMessage(project, "Exported ${notes.size} note(s) to\n${target.path}", "Export Complete")
+        try {
+            target.writeText(NotesIO.toJsonBackup(notes))
+            Messages.showInfoMessage(project, "Exported ${notes.size} note(s) to\n${target.path}", "Export Complete")
+        } catch (e: IOException) {
+            Messages.showErrorDialog(project, "Could not write ${target.path}:\n${e.message}", "Export Failed")
+        }
     }
 
     private fun exportMarkdown(notes: List<Note>) {
@@ -722,16 +735,20 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
             .withTitle("Choose Export Folder")
         val dir = FileChooser.chooseFile(descriptor, project, null) ?: return
         val used = HashSet<String>()
-        for (note in notes) {
-            val name = sanitize(note.displayTitle())
-            var candidate = "$name.md"
-            var i = 1
-            while (!used.add(candidate)) {
-                candidate = "$name-${i++}.md"
+        try {
+            for (note in notes) {
+                val name = sanitize(note.displayTitle())
+                var candidate = "$name.md"
+                var i = 1
+                while (!used.add(candidate)) {
+                    candidate = "$name-${i++}.md"
+                }
+                File(dir.path, candidate).writeText(NotesIO.noteToMarkdown(note))
             }
-            File(dir.path, candidate).writeText(NotesIO.noteToMarkdown(note))
+            Messages.showInfoMessage(project, "Exported ${notes.size} note(s) to\n${dir.path}", "Export Complete")
+        } catch (e: IOException) {
+            Messages.showErrorDialog(project, "Could not write to ${dir.path}:\n${e.message}", "Export Failed")
         }
-        Messages.showInfoMessage(project, "Exported ${notes.size} note(s) to\n${dir.path}", "Export Complete")
     }
 
     private fun sanitize(name: String): String =
@@ -743,6 +760,9 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     }
 
     fun dispose() {
+        // Flush any pending edit so nothing is lost when the tool window closes.
+        saveAlarm.cancelAllRequests()
+        if (view == View.DETAIL) saveCurrent()
         service.removeChangeListener(serviceListener)
         Disposer.dispose(disposable)
     }
