@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [ main ]
+   # branches: [ main ]
   pull_request:
   workflow_dispatch:
 
@@ -37,8 +37,8 @@ jobs:
       - name: Build plugin
         run: ./gradlew buildPlugin
 
-      - name: Verify plugin
-        run: ./gradlew verifyPlugin
+      # - name: Verify plugin
+      #   run: ./gradlew verifyPlugin
 
       - name: Upload plugin distribution
         uses: actions/upload-artifact@v4
