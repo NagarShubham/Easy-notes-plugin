@@ -20,26 +20,34 @@ dependencies {
     // jar tiny and free of bundled libraries.
 
     intellijPlatform {
-        // Build against a locally installed IDE. The path is configurable so the
-        // build is portable across macOS, Windows and Linux, and across CI:
-        //   - `-PlocalIdePath=/path/to/IDE`, or
-        //   - the LOCAL_IDE_PATH environment variable, or
-        //   - the conventional per-OS Android Studio location (default below).
-        // For CI without a local IDE, swap this for a downloadable target, e.g.:
-        //   androidStudio("2024.3.1.14")  // or intellijIdeaCommunity("2024.3")
-        val osName = System.getProperty("os.name").lowercase()
-        val defaultIdePath = when {
-            osName.contains("mac") -> "/Applications/Android Studio.app/Contents"
-            osName.contains("win") -> "C:\\Program Files\\Android\\Android Studio"
-            else -> "/opt/android-studio" // common Linux install location
+        // Pick the target IDE:
+        //  - On CI (no local IDE install) build against a downloadable IntelliJ
+        //    IDEA Community that matches our sinceBuild. Override the version with
+        //    `-PplatformVersion=...`.
+        //  - Locally, build against the installed Android Studio for an accurate
+        //    sandbox. The path is portable across macOS, Windows and Linux via:
+        //      `-PlocalIdePath=/path/to/IDE`, the LOCAL_IDE_PATH env var, or the
+        //      conventional per-OS Android Studio location (default below).
+        if (providers.environmentVariable("CI").isPresent) {
+            intellijIdeaCommunity(providers.gradleProperty("platformVersion").getOrElse("2024.2"))
+        } else {
+            val osName = System.getProperty("os.name").lowercase()
+            val defaultIdePath = when {
+                osName.contains("mac") -> "/Applications/Android Studio.app/Contents"
+                osName.contains("win") -> "C:\\Program Files\\Android\\Android Studio"
+                else -> "/opt/android-studio" // common Linux install location
+            }
+            val localIdePath = providers.gradleProperty("localIdePath")
+                .orElse(providers.environmentVariable("LOCAL_IDE_PATH"))
+                .getOrElse(defaultIdePath)
+            local(localIdePath)
         }
-        val localIdePath = providers.gradleProperty("localIdePath")
-            .orElse(providers.environmentVariable("LOCAL_IDE_PATH"))
-            .getOrElse(defaultIdePath)
-        local(localIdePath)
 
         // Kotlin plugin is required because this plugin is written in Kotlin.
         bundledPlugin("org.jetbrains.kotlin")
+
+        // Plugin Verifier, used by the `verifyPlugin` task (see below).
+        pluginVerifier()
     }
 
     // Lightweight unit tests for the pure logic (model / io / service).
@@ -58,6 +66,35 @@ intellijPlatform {
     }
     // Small plugin with no searchable settings: skip the extra build step.
     buildSearchableOptions = false
+
+    // `verifyPlugin` checks binary/API compatibility against real IDE builds.
+    // `recommended()` selects the IDEs that match our since/until range.
+    pluginVerification {
+        ides {
+            recommended()
+        }
+    }
+
+    // Marketplace plugin signing. `signPlugin` runs automatically before
+    // `publishPlugin` when these secrets are provided (via env vars in CI or
+    // locally); otherwise it is skipped. See docs/PUBLISHING or the release
+    // workflow for how the certificate/key are supplied.
+    signing {
+        certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
+        privateKey = providers.environmentVariable("PRIVATE_KEY")
+        password = providers.environmentVariable("PRIVATE_KEY_PASSWORD")
+    }
+
+    // Deploys to the JetBrains Marketplace via `publishPlugin`. The token comes
+    // from your Marketplace profile (My Tokens) and must never be committed.
+    publishing {
+        token = providers.environmentVariable("PUBLISH_TOKEN")
+        // Derive the release channel from the version suffix: e.g. 1.0.0-beta.1
+        // publishes to the "beta" channel; a plain 1.0.0 goes to "default".
+        channels = listOf(
+            version.toString().substringAfter('-', "").substringBefore('.').ifEmpty { "default" }
+        )
+    }
 }
 
 tasks.test {
