@@ -26,8 +26,26 @@
             <li>🌗 <b>Looks right anywhere</b> &mdash; automatic light and dark theme support.</li>
         </ul>
 
+        <h3>Keyboard shortcuts</h3>
+        <p>All shortcuts are active only while the Quick Notes tool window is focused,
+        so they never conflict with the rest of your IDE keymap:</p>
+        <ul>
+            <li><b>New note</b> &mdash; Cmd+N (macOS) / Ctrl+N</li>
+            <li><b>Search notes</b> &mdash; Cmd+F (macOS) / Ctrl+F</li>
+            <li><b>Open selected note</b> &mdash; Enter (in the list)</li>
+            <li><b>Delete selected note(s)</b> &mdash; Delete or Backspace (in the list)</li>
+            <li><b>Previous / next note</b> &mdash; Alt+Up / Alt+Down (while a note is open)</li>
+            <li><b>Back to list</b> &mdash; Esc (while a note is open)</li>
+        </ul>
+        <p>Prefer your own bindings? Every toolbar action can be remapped under
+        <i>Settings &rarr; Keymap &rarr; Plug-ins &rarr; Quick Notes</i>.</p>
+
         <p><b>Lightweight &amp; dependency-free</b> &mdash; a tiny plugin with zero bundled
         third-party libraries, so it stays fast and out of your way.</p>
+
+        <p>🔒 <b>Private by design</b> &mdash; every note is stored locally in your IDE's
+        configuration directory. Nothing is uploaded, tracked, or sent anywhere; your
+        notes never leave your machine unless you export them yourself.</p>
 
         <p>Works in all IntelliJ-based IDEs: IntelliJ IDEA, Android Studio, PyCharm,
         WebStorm, GoLand, PhpStorm, Rider, CLion, and more.</p>
@@ -53,64 +71,53 @@
     <depends>com.intellij.modules.platform</depends>
 
     <extensions defaultExtensionPoint="true" defaultExtensionNs="com.intellij">
-        <applicationService serviceImplementation="com.example.notes.service.NotesService"/>
+        <applicationService serviceImplementation="com.snagar.quicknotes.service.NotesService"/>
+        <notificationGroup id="Quick Notes" displayType="BALLOON"/>
         <toolWindow id="Quick Notes"
                     anchor="right"
                     icon="/icons/toolwindow.svg"
-                    factoryClass="com.example.notes.ui.NotesToolWindowFactory"/>
+                    factoryClass="com.snagar.quicknotes.ui.NotesToolWindowFactory"/>
     </extensions>
 
     <actions>
         <action id="Notes.Prev"
-                class="com.example.notes.actions.PrevNoteAction"
+                class="com.snagar.quicknotes.actions.PrevNoteAction"
                 text="Previous Note"
                 description="Go to the previous note"
-                icon="AllIcons.Actions.Back">
-            <keyboard-shortcut keymap="$default" first-keystroke="alt LEFT"/>
-        </action>
+                icon="AllIcons.Actions.Back"/>
 
         <action id="Notes.Next"
-                class="com.example.notes.actions.NextNoteAction"
+                class="com.snagar.quicknotes.actions.NextNoteAction"
                 text="Next Note"
                 description="Go to the next note"
-                icon="AllIcons.Actions.Forward">
-            <keyboard-shortcut keymap="$default" first-keystroke="alt RIGHT"/>
-        </action>
+                icon="AllIcons.Actions.Forward"/>
 
         <action id="Notes.New"
-                class="com.example.notes.actions.NewNoteAction"
+                class="com.snagar.quicknotes.actions.NewNoteAction"
                 text="New Note"
                 description="Create a new note"
-                icon="AllIcons.General.Add">
-            <keyboard-shortcut keymap="$default" first-keystroke="alt N"/>
-        </action>
+                icon="AllIcons.General.Add"/>
 
         <action id="Notes.Delete"
-                class="com.example.notes.actions.DeleteNoteAction"
+                class="com.snagar.quicknotes.actions.DeleteNoteAction"
                 text="Delete Note"
                 description="Delete the current note"
-                icon="/icons/delete.svg">
-            <keyboard-shortcut keymap="$default" first-keystroke="alt shift D"/>
-        </action>
+                icon="/icons/delete.svg"/>
 
         <action id="Notes.Search"
-                class="com.example.notes.actions.SearchNotesAction"
+                class="com.snagar.quicknotes.actions.SearchNotesAction"
                 text="Search Notes"
                 description="Search notes by title or content"
-                icon="AllIcons.Actions.Search">
-            <keyboard-shortcut keymap="$default" first-keystroke="alt F"/>
-        </action>
+                icon="AllIcons.Actions.Search"/>
 
         <action id="Notes.List"
-                class="com.example.notes.actions.ListNotesAction"
+                class="com.snagar.quicknotes.actions.ListNotesAction"
                 text="Back to List"
                 description="Show the list of all notes"
-                icon="AllIcons.Actions.ListFiles">
-            <keyboard-shortcut keymap="$default" first-keystroke="alt L"/>
-        </action>
+                icon="AllIcons.Actions.ListFiles"/>
 
         <action id="Notes.More"
-                class="com.example.notes.actions.MoreNotesAction"
+                class="com.snagar.quicknotes.actions.MoreNotesAction"
                 text="More Options"
                 description="Pin, star, color, sort, import and export"
                 icon="AllIcons.Actions.More"/>

@@ -1,4 +1,4 @@
-package com.example.notes.model
+package com.snagar.quicknotes.model
 
 import java.util.UUID
 

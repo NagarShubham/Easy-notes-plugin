@@ -1,10 +1,13 @@
-package com.example.notes.ui
+package com.snagar.quicknotes.ui
 
-import com.example.notes.io.ImportConflictPolicy
-import com.example.notes.io.NotesIO
-import com.example.notes.model.Note
-import com.example.notes.model.SortKey
-import com.example.notes.service.NotesService
+import com.snagar.quicknotes.io.ImportConflictPolicy
+import com.snagar.quicknotes.io.NotesIO
+import com.snagar.quicknotes.model.Note
+import com.snagar.quicknotes.model.SortKey
+import com.snagar.quicknotes.service.NotesService
+import com.intellij.notification.NotificationAction
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionPlaces
@@ -43,6 +46,8 @@ import java.awt.Color
 import java.awt.Dimension
 import java.awt.Font
 import java.awt.GridLayout
+import java.awt.Toolkit
+import java.awt.event.InputEvent
 import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -238,6 +243,32 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
             KeyStroke.getKeyStroke(KeyEvent.VK_BACK_SPACE, 0),
             JComponent.WHEN_FOCUSED
         )
+
+        // Tool-window-scoped shortcuts: these fire only when focus is inside the
+        // Quick Notes panel (WHEN_ANCESTOR_OF_FOCUSED_COMPONENT), so they never
+        // clash with the IDE's global keymap. The primary modifier is Cmd on
+        // macOS and Ctrl elsewhere, matching platform conventions.
+        val menuMask = Toolkit.getDefaultToolkit().menuShortcutKeyMaskEx
+        registerPanelShortcut(KeyStroke.getKeyStroke(KeyEvent.VK_N, menuMask)) { createNote() }
+        registerPanelShortcut(KeyStroke.getKeyStroke(KeyEvent.VK_F, menuMask)) { focusSearch() }
+        registerPanelShortcut(
+            KeyStroke.getKeyStroke(KeyEvent.VK_UP, InputEvent.ALT_DOWN_MASK)
+        ) { if (view == View.DETAIL) selectPrevious() }
+        registerPanelShortcut(
+            KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, InputEvent.ALT_DOWN_MASK)
+        ) { if (view == View.DETAIL) selectNext() }
+
+        // Esc returns to the list, but only while a note is open, so it doesn't
+        // swallow Esc (return focus to editor) when the list is already showing.
+        paperPanel.registerKeyboardAction(
+            { goToList() },
+            KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
+            JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT
+        )
+    }
+
+    private fun registerPanelShortcut(keyStroke: KeyStroke, run: () -> Unit) {
+        registerKeyboardAction({ run() }, keyStroke, JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
     }
 
     private fun scheduleSave() {
@@ -263,6 +294,10 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
             if (currentNote() == null) {
                 showListView()
             } else {
+                // Recompute the ordered view so the [index / total] counter (and
+                // prev/next navigation) reflect notes added, removed, restored via
+                // Undo, or reordered by pin/star while a note is open.
+                ordered = computeOrdered()
                 updateHeader()
             }
         }
@@ -324,11 +359,40 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     private fun deleteSelectedInList() {
         val selected = notesList.selectedValuesList
         if (selected.isEmpty()) return
-        val msg = if (selected.size == 1) "Delete note \"${selected[0].displayTitle()}\"?"
-        else "Delete ${selected.size} selected notes?"
-        if (Messages.showYesNoDialog(project, msg, "Delete Note", "Delete", "Cancel", Messages.getWarningIcon()) != Messages.YES) return
-        if (selected.any { it.id == currentId }) currentId = null
-        service.deleteNotes(selected.map { it.id })
+        // No confirmation dialog: the delete is immediately reversible via the
+        // "Undo" action on the notification shown by performDelete().
+        performDelete(selected)
+    }
+
+    /**
+     * Deletes [notes] and shows a balloon notification with an "Undo" action that
+     * restores them. This is the single funnel for every delete path, so notes
+     * are never lost to a stray keystroke or misclick.
+     */
+    private fun performDelete(notes: List<Note>) {
+        if (notes.isEmpty()) return
+        val snapshots = notes.map { it.copy() }
+        if (notes.any { it.id == currentId }) currentId = null
+        service.deleteNotes(notes.map { it.id })
+        notifyUndoableDelete(snapshots)
+    }
+
+    private fun notifyUndoableDelete(snapshots: List<Note>) {
+        val title = if (snapshots.size == 1) {
+            "Deleted \u201C${snapshots[0].displayTitle()}\u201D"
+        } else {
+            "Deleted ${snapshots.size} notes"
+        }
+        val notification = NotificationGroupManager.getInstance()
+            .getNotificationGroup("Quick Notes")
+            .createNotification(title, NotificationType.INFORMATION)
+        notification.addAction(NotificationAction.createSimpleExpiring("Undo") {
+            // Restore only notes that are still missing, so pressing Undo twice or
+            // re-importing in the meantime can't create duplicates.
+            val toRestore = snapshots.filterNot { service.existsById(it.id) }
+            if (toRestore.isNotEmpty()) service.addNotes(toRestore)
+        })
+        notification.notify(project)
     }
 
     /**
@@ -347,8 +411,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         if (!dialog.showAndGet()) return
         val chosen = dialog.selectedNotes()
         if (chosen.isEmpty()) return
-        if (chosen.any { it.id == currentId }) currentId = null
-        service.deleteNotes(chosen.map { it.id })
+        performDelete(chosen)
     }
 
     /** Deletes every note (respecting no filter), after a single confirmation. */
@@ -360,12 +423,11 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         }
         if (Messages.showYesNoDialog(
                 project,
-                "Delete all ${all.size} note(s)? This cannot be undone.",
+                "Delete all ${all.size} note(s)? You can undo this from the notification.",
                 "Delete All Notes", "Delete All", "Cancel", Messages.getWarningIcon()
             ) != Messages.YES
         ) return
-        currentId = null
-        service.deleteNotes(all.map { it.id })
+        performDelete(all)
     }
 
     private fun showListContextMenu(e: MouseEvent) {
@@ -488,16 +550,13 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
             return
         }
         val note = currentNote() ?: return
-        if (Messages.showYesNoDialog(
-                project, "Delete note \"${note.displayTitle()}\"?", "Delete Note",
-                "Delete", "Cancel", Messages.getWarningIcon()
-            ) != Messages.YES
-        ) return
+        // No confirmation dialog: the delete is immediately reversible via the
+        // "Undo" action on the notification shown by performDelete().
         saveAlarm.cancelAllRequests()
         ordered = computeOrdered()
         val idx = ordered.indexOfFirst { it.id == note.id }
         val neighbor = ordered.getOrNull(idx + 1) ?: ordered.getOrNull(idx - 1)
-        service.deleteNotes(listOf(note.id))
+        performDelete(listOf(note))
         if (neighbor != null && neighbor.id != note.id) {
             openDetail(neighbor)
         } else {
@@ -768,7 +827,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     }
 
     companion object {
-        val NOTES_PANEL_KEY: DataKey<NotesPanel> = DataKey.create("com.example.notes.panel")
+        val NOTES_PANEL_KEY: DataKey<NotesPanel> = DataKey.create("com.snagar.quicknotes.panel")
 
         fun from(e: AnActionEvent): NotesPanel? = e.getData(NOTES_PANEL_KEY)
     }

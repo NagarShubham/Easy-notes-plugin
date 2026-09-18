@@ -4,7 +4,7 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.19.0"
 }
 
-group = "com.example.notes"
+group = "com.snagar.quicknotes"
 version = "1.0.0"
 
 repositories {
@@ -16,20 +16,26 @@ repositories {
 
 dependencies {
     // No third-party runtime dependencies: JSON import/export uses a small
-    // in-house reader/writer (com.example.notes.io.Json), keeping the plugin
+    // in-house reader/writer (com.snagar.quicknotes.io.Json), keeping the plugin
     // jar tiny and free of bundled libraries.
 
     intellijPlatform {
         // Build against a locally installed IDE. The path is configurable so the
-        // build is portable across machines and CI:
-        //   - `-PlocalIdePath=/path/to/IDE.app/Contents`, or
+        // build is portable across macOS, Windows and Linux, and across CI:
+        //   - `-PlocalIdePath=/path/to/IDE`, or
         //   - the LOCAL_IDE_PATH environment variable, or
-        //   - the conventional macOS Android Studio location (default below).
+        //   - the conventional per-OS Android Studio location (default below).
         // For CI without a local IDE, swap this for a downloadable target, e.g.:
         //   androidStudio("2024.3.1.14")  // or intellijIdeaCommunity("2024.3")
+        val osName = System.getProperty("os.name").lowercase()
+        val defaultIdePath = when {
+            osName.contains("mac") -> "/Applications/Android Studio.app/Contents"
+            osName.contains("win") -> "C:\\Program Files\\Android\\Android Studio"
+            else -> "/opt/android-studio" // common Linux install location
+        }
         val localIdePath = providers.gradleProperty("localIdePath")
             .orElse(providers.environmentVariable("LOCAL_IDE_PATH"))
-            .getOrElse("/Applications/Android Studio.app/Contents")
+            .getOrElse(defaultIdePath)
         local(localIdePath)
 
         // Kotlin plugin is required because this plugin is written in Kotlin.

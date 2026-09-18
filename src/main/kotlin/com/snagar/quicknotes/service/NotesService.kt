@@ -1,6 +1,6 @@
-package com.example.notes.service
+package com.snagar.quicknotes.service
 
-import com.example.notes.model.Note
+import com.snagar.quicknotes.model.Note
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
@@ -70,6 +70,13 @@ class NotesService : PersistentStateComponent<NotesService.State> {
     /** Adds an already-constructed note (used by import). */
     fun addNote(note: Note) {
         state.notes.add(note)
+        fireChanged()
+    }
+
+    /** Adds several notes at once, firing a single change event (used by undo). */
+    fun addNotes(notes: Collection<Note>) {
+        if (notes.isEmpty()) return
+        state.notes.addAll(notes)
         fireChanged()
     }
 

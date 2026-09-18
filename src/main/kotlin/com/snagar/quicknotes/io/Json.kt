@@ -1,4 +1,4 @@
-package com.example.notes.io
+package com.snagar.quicknotes.io
 
 /**
  * Minimal, dependency-free JSON reader/writer covering exactly what note

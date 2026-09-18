@@ -1,7 +1,7 @@
-package com.example.notes.io
+package com.snagar.quicknotes.io
 
-import com.example.notes.model.Note
-import com.example.notes.service.NotesService
+import com.snagar.quicknotes.model.Note
+import com.snagar.quicknotes.service.NotesService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Quick Notes — Editor</title>
+<style>
+  :root{
+    --bg:#ffffff; --panel:#f7f8fa; --border:#dfe1e5; --text:#1a1a1a;
+    --muted:#8a8f98; --paper:#FFFDE0; --ink:#2b2b2b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    width:1280px;height:800px;background:#e9ebef;
+    font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--text);display:flex;align-items:center;justify-content:center;
+  }
+  .window{
+    width:560px;height:720px;background:var(--bg);border:1px solid var(--border);
+    border-radius:10px;overflow:hidden;box-shadow:0 24px 60px rgba(20,30,50,.28);
+    display:flex;flex-direction:column;
+  }
+  .tw-header{
+    height:34px;background:var(--panel);border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:8px;padding:0 12px;font-size:12px;color:var(--muted);
+  }
+  .tw-header .dot{width:14px;height:14px;border-radius:3px;
+    background:linear-gradient(135deg,#ffd54a,#ffb300);display:inline-block}
+  .tw-header b{color:var(--text);font-weight:600;font-size:12.5px}
+  .toolbar{
+    display:flex;align-items:center;gap:5px;padding:6px 10px;border-bottom:1px solid var(--border);
+  }
+  .index{font-size:12px;color:var(--muted);margin-right:auto}
+  .index b{color:var(--text)}
+  .index .pin{color:#e2504a}.index .star{color:#c99700}
+  .btn{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#4a4f57}
+  .btn:hover{background:#eef0f3}
+  .btn svg{width:15px;height:15px}
+  .sep{width:1px;height:16px;background:var(--border);margin:0 2px}
+  /* Legal pad */
+  .paper{flex:1;background:var(--paper);display:flex;flex-direction:column;position:relative}
+  .p-title{
+    font-size:19px;font-weight:700;color:var(--ink);background:transparent;border:none;outline:none;
+    padding:12px 16px 6px 22px;
+  }
+  .p-body{
+    flex:1;position:relative;color:var(--ink);font-size:15px;line-height:28px;
+    padding:6px 16px 10px 22px;white-space:pre-wrap;
+    background:
+      /* red left margin line */
+      linear-gradient(to right, transparent 15px, rgba(210,110,110,.5) 15px, rgba(210,110,110,.5) 16px, transparent 16px),
+      /* horizontal ruled lines every 28px, aligned to baseline */
+      repeating-linear-gradient(to bottom, transparent 0, transparent 27px, rgba(90,90,90,.16) 27px, rgba(90,90,90,.16) 28px);
+    background-position:0 0, 0 6px;
+  }
+</style>
+</head>
+<body>
+  <div class="window">
+    <div class="tw-header"><span class="dot"></span><b>Quick Notes</b></div>
+    <div class="toolbar">
+      <div class="index"><b>[1 / 6]</b>&nbsp;&nbsp;Sep 18, 2026 11:45 AM&nbsp;&nbsp;<span class="pin">📌</span>&nbsp;<span class="star">★</span></div>
+      <div class="btn" title="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></div>
+      <div class="btn" title="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></div>
+      <div class="sep"></div>
+      <div class="btn" title="New"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+      <div class="btn" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></div>
+      <div class="sep"></div>
+      <div class="btn" title="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div>
+      <div class="btn" title="Back to list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></div>
+      <div class="btn" title="More"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></div>
+    </div>
+    <div class="paper">
+      <div class="p-title">Sprint 42 — planning notes</div>
+      <div class="p-body">Goals for this sprint:
+• Ship Quick Notes 1.0 to the JetBrains Marketplace
+• Undo/Trash for deletes — done ✔
+• Tool-window-scoped shortcuts (no keymap conflicts)
+
+Follow-ups:
+- Add screenshots to the listing
+- Draft the change-notes
+- Ask design for a hero image
+
+“Capture ideas where your code lives.”</div>
+    </div>
+  </div>
+</body>
+</html>

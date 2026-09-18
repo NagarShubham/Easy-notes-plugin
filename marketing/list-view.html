@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Quick Notes — List</title>
+<style>
+  :root{
+    --bg:#ffffff; --panel:#f7f8fa; --border:#dfe1e5; --text:#1a1a1a;
+    --muted:#8a8f98; --accent:#3574f0; --sel:#edf3ff; --selborder:#cfe0ff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    width:1280px;height:800px;background:#e9eb0f0;background:#e9ebef;
+    font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--text);display:flex;align-items:center;justify-content:center;
+  }
+  .window{
+    width:520px;height:720px;background:var(--bg);border:1px solid var(--border);
+    border-radius:10px;overflow:hidden;box-shadow:0 24px 60px rgba(20,30,50,.28);
+    display:flex;flex-direction:column;
+  }
+  .tw-header{
+    height:34px;background:var(--panel);border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:8px;padding:0 12px;font-size:12px;color:var(--muted);
+  }
+  .tw-header .dot{width:14px;height:14px;border-radius:3px;
+    background:linear-gradient(135deg,#ffd54a,#ffb300);display:inline-block}
+  .tw-header b{color:var(--text);font-weight:600;font-size:12.5px}
+  .toolbar{
+    display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border);
+  }
+  .btn{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+    color:#4a4f57;cursor:default}
+  .btn:hover{background:#eef0f3}
+  .btn svg{width:16px;height:16px}
+  .sep{width:1px;height:18px;background:var(--border);margin:0 2px}
+  .search{flex:1;height:26px;border:1px solid var(--border);border-radius:6px;background:#fff;
+    display:flex;align-items:center;gap:6px;padding:0 8px;color:var(--muted);font-size:12.5px}
+  .search svg{width:14px;height:14px}
+  .list{flex:1;overflow:auto}
+  .row{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;border-bottom:1px solid #f0f1f3}
+  .row.sel{background:var(--sel);box-shadow:inset 2px 0 0 var(--accent)}
+  .swatch{width:12px;height:12px;border-radius:2px;border:1px solid rgba(0,0,0,.18);margin-top:3px;flex:none}
+  .rtext{flex:1;min-width:0}
+  .title{font-weight:600;font-size:13.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sub{font-size:11px;color:var(--muted);margin-top:3px}
+  .icons{display:flex;align-items:center;gap:6px;font-size:12px;color:#c99700;margin-top:1px}
+  .icons .pin{color:#e2504a}
+  .foot{height:30px;border-top:1px solid var(--border);background:var(--panel);
+    display:flex;align-items:center;padding:0 12px;font-size:11px;color:var(--muted)}
+</style>
+</head>
+<body>
+  <div class="window">
+    <div class="tw-header"><span class="dot"></span><b>Quick Notes</b></div>
+    <div class="toolbar">
+      <div class="btn" title="New note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      </div>
+      <div class="btn" title="Delete">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+      </div>
+      <div class="sep"></div>
+      <div class="btn" title="More">
+        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+      </div>
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        Search notes…
+      </div>
+    </div>
+    <div class="list">
+      <div class="row sel">
+        <span class="swatch" style="background:#FFF6B8"></span>
+        <div class="rtext">
+          <div class="title">Sprint 42 — planning notes</div>
+          <div class="sub">Created Sep 18, 2026 09:12&nbsp;&nbsp;·&nbsp;&nbsp;Modified Sep 18, 2026 11:45</div>
+        </div>
+        <div class="icons"><span class="pin">📌</span><span>★</span></div>
+      </div>
+      <div class="row">
+        <span class="swatch" style="background:#C8E6C9"></span>
+        <div class="rtext">
+          <div class="title">API refactor — TODO checklist</div>
+          <div class="sub">Created Sep 17, 2026 16:03&nbsp;&nbsp;·&nbsp;&nbsp;Modified Sep 18, 2026 08:20</div>
+        </div>
+        <div class="icons"><span>★</span></div>
+      </div>
+      <div class="row">
+        <span class="swatch" style="background:#BBDEFB"></span>
+        <div class="rtext">
+          <div class="title">Standup — blockers &amp; follow-ups</div>
+          <div class="sub">Created Sep 17, 2026 09:30</div>
+        </div>
+        <div class="icons"></div>
+      </div>
+      <div class="row">
+        <span class="swatch" style="background:#F8BBD0"></span>
+        <div class="rtext">
+          <div class="title">Bug #1287 — repro steps</div>
+          <div class="sub">Created Sep 16, 2026 14:47&nbsp;&nbsp;·&nbsp;&nbsp;Modified Sep 17, 2026 10:02</div>
+        </div>
+        <div class="icons"></div>
+      </div>
+      <div class="row">
+        <span class="swatch" style="background:#FFFDE0"></span>
+        <div class="rtext">
+          <div class="title">Snippets — Gradle &amp; Kotlin</div>
+          <div class="sub">Created Sep 15, 2026 11:10</div>
+        </div>
+        <div class="icons"></div>
+      </div>
+      <div class="row">
+        <span class="swatch" style="background:#E1BEE7"></span>
+        <div class="rtext">
+          <div class="title">Ideas — plugin marketplace</div>
+          <div class="sub">Created Sep 14, 2026 19:22</div>
+        </div>
+        <div class="icons"></div>
+      </div>
+    </div>
+    <div class="foot">6 notes · stored locally on your machine</div>
+  </div>
+</body>
+</html>

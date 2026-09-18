@@ -1,4 +1,4 @@
-package com.example.notes.ui
+package com.snagar.quicknotes.ui
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.DumbAware
