@@ -1,4 +1,4 @@
-package com.snagar.quicknotes.model
+package com.snagar.easynotes.model
 
 import java.util.UUID
 

@@ -1,6 +1,6 @@
-package com.snagar.quicknotes.actions
+package com.snagar.easynotes.actions
 
-import com.snagar.quicknotes.ui.NotesPanel
+import com.snagar.easynotes.ui.NotesPanel
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.DumbAwareAction

@@ -1,6 +1,6 @@
-package com.snagar.quicknotes.ui
+package com.snagar.easynotes.ui
 
-import com.snagar.quicknotes.model.Note
+import com.snagar.easynotes.model.Note
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil

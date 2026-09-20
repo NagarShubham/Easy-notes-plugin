@@ -4,7 +4,7 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.19.0"
 }
 
-group = "com.snagar.quicknotes"
+group = "com.snagar.easynotes"
 version = "1.0.0"
 
 repositories {
@@ -16,7 +16,7 @@ repositories {
 
 dependencies {
     // No third-party runtime dependencies: JSON import/export uses a small
-    // in-house reader/writer (com.snagar.quicknotes.io.Json), keeping the plugin
+    // in-house reader/writer (com.snagar.easynotes.io.Json), keeping the plugin
     // jar tiny and free of bundled libraries.
 
     intellijPlatform {
@@ -66,6 +66,13 @@ intellijPlatform {
     }
     // Small plugin with no searchable settings: skip the extra build step.
     buildSearchableOptions = false
+
+    // This plugin is pure Kotlin with no .form UI files and no @NotNull byte-code
+    // instrumentation, so the `instrumentCode` step is unnecessary. Disabling it
+    // also drops the `java-compiler-ant-tasks` download (a JetBrains CDN artifact
+    // that can fail to resolve on restricted networks), so the build is faster
+    // and more reliable.
+    instrumentCode = false
 
     // `verifyPlugin` checks binary/API compatibility against real IDE builds.
     // `recommended()` selects the IDEs that match our since/until range.

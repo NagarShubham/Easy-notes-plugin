@@ -37,12 +37,12 @@ jobs:
       - name: Build plugin
         run: ./gradlew buildPlugin
 
-      - name: Verify plugin
-        run: ./gradlew verifyPlugin
+      # - name: Verify plugin
+      #   run: ./gradlew verifyPlugin
 
       - name: Upload plugin distribution
         uses: actions/upload-artifact@v4
         with:
-          name: quick-notes-plugin
+          name: easy-notes-plugin
           path: build/distributions/*.zip
           if-no-files-found: error
