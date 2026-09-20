@@ -1,4 +1,4 @@
-package com.snagar.quicknotes.ui
+package com.snagar.easynotes.ui
 
 import com.intellij.ui.components.JBTextArea
 import java.awt.Color

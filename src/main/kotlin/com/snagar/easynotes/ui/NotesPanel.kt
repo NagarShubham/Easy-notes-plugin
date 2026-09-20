@@ -1,10 +1,10 @@
-package com.snagar.quicknotes.ui
+package com.snagar.easynotes.ui
 
-import com.snagar.quicknotes.io.ImportConflictPolicy
-import com.snagar.quicknotes.io.NotesIO
-import com.snagar.quicknotes.model.Note
-import com.snagar.quicknotes.model.SortKey
-import com.snagar.quicknotes.service.NotesService
+import com.snagar.easynotes.io.ImportConflictPolicy
+import com.snagar.easynotes.io.NotesIO
+import com.snagar.easynotes.model.Note
+import com.snagar.easynotes.model.SortKey
+import com.snagar.easynotes.service.NotesService
 import com.intellij.notification.NotificationAction
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
@@ -245,7 +245,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         )
 
         // Tool-window-scoped shortcuts: these fire only when focus is inside the
-        // Quick Notes panel (WHEN_ANCESTOR_OF_FOCUSED_COMPONENT), so they never
+        // Easy Notes panel (WHEN_ANCESTOR_OF_FOCUSED_COMPONENT), so they never
         // clash with the IDE's global keymap. The primary modifier is Cmd on
         // macOS and Ctrl elsewhere, matching platform conventions.
         val menuMask = Toolkit.getDefaultToolkit().menuShortcutKeyMaskEx
@@ -384,7 +384,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
             "Deleted ${snapshots.size} notes"
         }
         val notification = NotificationGroupManager.getInstance()
-            .getNotificationGroup("Quick Notes")
+            .getNotificationGroup("Easy Notes")
             .createNotification(title, NotificationType.INFORMATION)
         notification.addAction(NotificationAction.createSimpleExpiring("Undo") {
             // Restore only notes that are still missing, so pressing Undo twice or
@@ -827,7 +827,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     }
 
     companion object {
-        val NOTES_PANEL_KEY: DataKey<NotesPanel> = DataKey.create("com.snagar.quicknotes.panel")
+        val NOTES_PANEL_KEY: DataKey<NotesPanel> = DataKey.create("com.snagar.easynotes.panel")
 
         fun from(e: AnActionEvent): NotesPanel? = e.getData(NOTES_PANEL_KEY)
     }

@@ -1,6 +1,6 @@
-package com.snagar.quicknotes.service
+package com.snagar.easynotes.service
 
-import com.snagar.quicknotes.model.Note
+import com.snagar.easynotes.model.Note
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service

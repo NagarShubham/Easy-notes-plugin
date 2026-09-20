@@ -1,1 +1,1 @@
-rootProject.name = "notes-plugin"
+rootProject.name = "easy-notes"
