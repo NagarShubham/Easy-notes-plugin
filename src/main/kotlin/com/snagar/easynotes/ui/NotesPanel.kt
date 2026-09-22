@@ -45,6 +45,7 @@ import java.awt.CardLayout
 import java.awt.Color
 import java.awt.Dimension
 import java.awt.Font
+import java.awt.GraphicsEnvironment
 import java.awt.GridLayout
 import java.awt.Toolkit
 import java.awt.event.InputEvent
@@ -60,6 +61,7 @@ import javax.swing.BorderFactory
 import javax.swing.DefaultListModel
 import javax.swing.JButton
 import javax.swing.JColorChooser
+import javax.swing.JComboBox
 import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.KeyStroke
@@ -96,6 +98,11 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     private val paperPanel = JPanel(BorderLayout())
     private val contentScroll = JBScrollPane(contentArea)
 
+    // Fonts used when the user hasn't chosen a custom font; captured once so we
+    // can always fall back to the IDE default family/size.
+    private lateinit var defaultTitleFont: Font
+    private lateinit var defaultContentFont: Font
+
     // Shared state
     private var ordered: List<Note> = emptyList()
     private var currentId: String? = null
@@ -127,7 +134,21 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         service.addChangeListener(serviceListener)
 
         reloadList()
-        showListView()
+        restoreLastView()
+    }
+
+    /**
+     * On startup, reopen the note the user last had open (if it still exists);
+     * otherwise show the list. This makes the tool window come back exactly where
+     * you left it, and only defaults to the list on a fresh install.
+     */
+    private fun restoreLastView() {
+        val lastNote = service.getLastOpenedNoteId()?.let { service.findNote(it) }
+        if (lastNote != null) {
+            openDetail(lastNote)
+        } else {
+            showListView()
+        }
     }
 
     // region UI construction
@@ -166,13 +187,15 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         north.add(createToolbar("Notes.DetailToolbar").component, BorderLayout.EAST)
         card.add(north, BorderLayout.NORTH)
 
-        titleField.font = titleField.font.deriveFont(Font.BOLD, titleField.font.size2D + 3f)
+        defaultTitleFont = titleField.font.deriveFont(Font.BOLD, titleField.font.size2D + 3f)
         titleField.border = JBUI.Borders.empty(8, 14, 4, 10)
         titleField.emptyText.text = Note.DEFAULT_TITLE
 
-        contentArea.font = contentArea.font.deriveFont(contentArea.font.size2D + 1f)
+        defaultContentFont = contentArea.font.deriveFont(contentArea.font.size2D + 1f)
         contentArea.border = JBUI.Borders.empty(6, 18, 8, 10)
         contentArea.emptyText.text = "Enter your notes here..."
+
+        applyFont()
 
         contentScroll.border = JBUI.Borders.empty()
         contentScroll.viewport.isOpaque = true
@@ -288,6 +311,8 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     private fun currentNote(): Note? = currentId?.let { service.findNote(it) }
 
     private fun onNotesChanged() {
+        // Keep the font in sync when it is changed here or in another open panel.
+        applyFont()
         if (view == View.LIST) {
             reloadList()
         } else {
@@ -341,6 +366,10 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
             saveAlarm.cancelAllRequests()
             saveCurrent()
         }
+        // Note: we deliberately keep the last-opened note id here. Navigating back
+        // to the list should not make the IDE forget which note to reopen next
+        // launch; the list is the default only on a fresh install (no id yet) or
+        // when that note has since been deleted (findNote fails on restore).
         view = View.LIST
         reloadList()
         (cards.layout as CardLayout).show(cards, View.LIST.name)
@@ -486,6 +515,10 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
             contentArea.caretPosition = 0
             applyPaperColor(note.colorRgb)
             updateHeader()
+            // Remember exactly which note is on screen so it reopens on the next
+            // IDE launch. This lives here (not in openDetail) so it also tracks
+            // Previous/Next navigation, which loads notes without reopening them.
+            service.setLastOpenedNoteId(note.id)
         } finally {
             loading = false
         }
@@ -579,8 +612,6 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
     fun isDetailView(): Boolean = view == View.DETAIL
 
-    fun isListView(): Boolean = view == View.LIST
-
     fun hasNotesForNav(): Boolean = view == View.DETAIL && ordered.isNotEmpty()
 
     fun canDelete(): Boolean =
@@ -615,6 +646,8 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
             })
         }
         group.add(sortGroup)
+        group.addSeparator()
+        group.add(action("Font...") { showFontDialog() })
         group.addSeparator()
         group.add(action("Import Notes...") { importNotes() })
         group.add(action("Export Notes...") { exportNotes() })
@@ -680,6 +713,44 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         note.colorRgb = rgb
         applyPaperColor(rgb)
         service.touchNote(note)
+    }
+    // endregion
+
+    // region font
+    /**
+     * Applies the globally-configured note font (family and size) to the title
+     * and body of every note, falling back to the IDE defaults for whichever of
+     * family/size the user hasn't overridden.
+     */
+    private fun applyFont() {
+        val family = service.getFontFamily()
+        val size = service.getFontSize()
+        if (family == null && size == null) {
+            titleField.font = defaultTitleFont
+            contentArea.font = defaultContentFont
+        } else {
+            val bodySize = size ?: defaultContentFont.size
+            val bodyFamily = family ?: defaultContentFont.family
+            val titleFamily = family ?: defaultTitleFont.family
+            contentArea.font = Font(bodyFamily, Font.PLAIN, bodySize)
+            titleField.font = Font(titleFamily, Font.BOLD, bodySize + 2)
+        }
+        contentArea.revalidate()
+        contentArea.repaint()
+        titleField.revalidate()
+        titleField.repaint()
+    }
+
+    private fun showFontDialog() {
+        val current = FontChoice(
+            family = service.getFontFamily() ?: defaultContentFont.family,
+            size = service.getFontSize() ?: defaultContentFont.size
+        )
+        val dialog = FontSettingsDialog(project, current)
+        if (!dialog.showAndGet()) return
+        val chosen = dialog.selectedFont()
+        service.setFont(chosen.family, chosen.size)
+        applyFont()
     }
     // endregion
 
@@ -871,4 +942,77 @@ private class DeleteNotesDialog(
         } else {
             null
         }
+}
+
+/** The font family + base size chosen for all notes. */
+internal data class FontChoice(val family: String, val size: Int)
+
+/**
+ * A dialog to pick the font family and size applied to every note. Shows a live
+ * preview so the effect is visible before committing.
+ */
+private class FontSettingsDialog(
+    project: Project?,
+    private val initial: FontChoice
+) : DialogWrapper(project) {
+
+    private val families: Array<String> =
+        GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames
+
+    private val familyCombo = JComboBox(families)
+    private val sizeCombo = JComboBox(FONT_SIZES.toTypedArray())
+    private val preview = JBLabel()
+
+    init {
+        title = "Note Font"
+        familyCombo.selectedItem = initial.family.takeIf { families.contains(it) } ?: families.firstOrNull()
+        sizeCombo.selectedItem = initial.size
+        sizeCombo.isEditable = true
+        familyCombo.addActionListener { updatePreview() }
+        sizeCombo.addActionListener { updatePreview() }
+        init()
+        updatePreview()
+    }
+
+    override fun createCenterPanel(): JComponent {
+        val panel = JPanel(BorderLayout(0, 10))
+        panel.preferredSize = Dimension(380, 200)
+
+        val controls = JPanel(GridLayout(2, 2, 8, 8))
+        controls.add(JBLabel("Font:"))
+        controls.add(familyCombo)
+        controls.add(JBLabel("Size:"))
+        controls.add(sizeCombo)
+        panel.add(controls, BorderLayout.NORTH)
+
+        preview.text = "The quick brown fox jumps over the lazy dog."
+        preview.border = BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(JBColor.border()),
+            JBUI.Borders.empty(10)
+        )
+        preview.verticalAlignment = JBLabel.CENTER
+        panel.add(preview, BorderLayout.CENTER)
+        return panel
+    }
+
+    private fun currentSize(): Int {
+        val raw = sizeCombo.selectedItem
+        val value = when (raw) {
+            is Int -> raw
+            else -> raw?.toString()?.trim()?.toIntOrNull() ?: initial.size
+        }
+        return value.coerceIn(6, 96)
+    }
+
+    private fun updatePreview() {
+        val family = familyCombo.selectedItem as? String ?: initial.family
+        preview.font = Font(family, Font.PLAIN, currentSize())
+    }
+
+    fun selectedFont(): FontChoice =
+        FontChoice(familyCombo.selectedItem as? String ?: initial.family, currentSize())
+
+    private companion object {
+        val FONT_SIZES = listOf(8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 22, 24, 28, 32, 36)
+    }
 }

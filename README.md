@@ -2,7 +2,7 @@
 
 An IntelliJ Platform plugin for capturing ideas, TODOs, snippets, and meeting notes inside the IDE. Notes live in a legal-pad editor, auto-save, and persist across sessions and projects.
 
-Plugin ID: `com.snagar.easynotes` · Version: `1.0.0` · License: [MIT](LICENSE)
+Plugin ID: `com.snagar.easynotes` · Version: `1.0.1` · License: [MIT](LICENSE)
 
 Works in IntelliJ IDEA, Android Studio, PyCharm, WebStorm, GoLand, PhpStorm, Rider, CLion, and other IntelliJ-based IDEs (build **242** / 2024.2 and later).
 
@@ -31,7 +31,7 @@ Works in IntelliJ IDEA, Android Studio, PyCharm, WebStorm, GoLand, PhpStorm, Rid
 
 ## Install from a zip
 
-1. Build (see [Build](#build)) or download `easy-notes-1.0.0.zip` from `build/distributions/`.
+1. Build (see [Build](#build)) or download `easy-notes-1.0.1.zip` from `build/distributions/`.
 2. In the IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…**
 3. Select the zip and restart when prompted.
 4. Open **View → Tool Windows → Easy Notes** (right dock by default).
@@ -90,7 +90,7 @@ gradlew.bat buildPlugin
 .\gradlew.bat buildPlugin
 ```
 
-Output zip: `build/distributions/easy-notes-1.0.0.zip`
+Output zip: `build/distributions/easy-notes-1.0.1.zip`
 
 ### Target IDE for the sandbox build
 

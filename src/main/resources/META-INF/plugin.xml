@@ -1,17 +1,19 @@
 <idea-plugin>
     <id>com.snagar.easynotes</id>
     <name>Easy Notes</name>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <vendor email="shubham786nagar@gmail.com" url="https://github.com/NagarShubham">Shubham Nagar</vendor>
 
     <description><![CDATA[
-        <p><b>Easy Notes</b> keeps your thoughts where your code lives. Capture ideas,
-        TODOs, snippets, and meeting notes in a distraction-free notepad docked right
-        inside your IDE &mdash; no context switching, no lost sticky notes.</p>
+        <p><b>Easy Notes</b> is the Powerful, distraction-free notepad that lives right
+        inside your IDE. Capture ideas, TODOs, snippets, and meeting notes on a warm,
+        ruled legal-pad editor &mdash; <b>no context switching, no lost sticky notes,
+        nothing to set up.</b> Just open the tool window and start writing.</p>
 
-        <p>Every note is written on a warm, ruled legal-pad editor and <b>saved
-        automatically</b>, so your work is always there when you come back &mdash;
-        across restarts and across every project.</p>
+        <p>Every keystroke is <b>saved automatically</b> and kept <b>globally across
+        every project and every restart</b>, so your notes are always exactly where you
+        left them. Easy Notes even reopens the last note you were reading when you
+        relaunch your IDE.</p>
 
         <p>
             <img src="https://raw.githubusercontent.com/NagarShubham/easy-notes/main/marketing/easynotes-list.png" alt="Easy Notes searchable, color-coded notes list" width="420"/>
@@ -19,20 +21,23 @@
             <img src="https://raw.githubusercontent.com/NagarShubham/easy-notes/main/marketing/easynotes-editor.png" alt="Easy Notes ruled legal-pad editor" width="420"/>
         </p>
 
-        <h3>Why you'll love it</h3>
+        <h3>✨ Everything you need to stay organized</h3>
         <ul>
-            <li>📝 <b>Auto-save that just works</b> &mdash; type freely; notes persist globally across IDE sessions.</li>
-            <li>🗂️ <b>Everything in one place</b> &mdash; a clean, searchable, sortable list with a single-click editor.</li>
-            <li>🎨 <b>Make it yours</b> &mdash; custom titles and per-note background colors from a handy palette.</li>
-            <li>📌 <b>Stay organized</b> &mdash; pin important notes to the top and star your favorites.</li>
-            <li>⚡ <b>Keyboard-first</b> &mdash; create, delete, search, and jump between notes with shortcuts.</li>
+            <li>📝 <b>Effortless auto-save</b> &mdash; type freely; every note persists globally across IDE sessions, projects, and restarts.</li>
+            <li>🖋️ <b>Your font, your way</b> &mdash; choose the font family and size for all your notes, with a live preview; defaults to your IDE font until you change it.</li>
+            <li>🗂️ <b>All notes in one place</b> &mdash; a clean, searchable list with a single-click, single-window editor.</li>
+            <li>🔎 <b>Instant search</b> &mdash; filter notes by title or content as you type.</li>
+            <li>↕️ <b>Smart sorting</b> &mdash; order notes by title, creation date, or last modified.</li>
+            <li>🎨 <b>Color-code everything</b> &mdash; give each note its own background color from a palette or a custom picker.</li>
+            <li>📌 <b>Pin &amp; ⭐ star</b> &mdash; keep important notes on top and mark your favorites, with a favorites-only filter.</li>
+            <li>⚡ <b>Keyboard-first</b> &mdash; create, delete, search, and jump between notes without touching the mouse.</li>
             <li>🧭 <b>Fast navigation</b> &mdash; flip through notes with previous/next controls.</li>
-            <li>🗑️ <b>Safe deletes</b> &mdash; pick exactly which notes to remove, or clear all, always with confirmation.</li>
+            <li>🗑️ <b>Safe, reversible deletes</b> &mdash; remove one, several, or all notes &mdash; with one-click <b>Undo</b>.</li>
             <li>🔁 <b>Own your data</b> &mdash; import and export as <b>JSON</b> or <b>Markdown</b> with smart conflict handling.</li>
-            <li>🌗 <b>Looks right anywhere</b> &mdash; automatic light and dark theme support.</li>
+            <li>🌗 <b>Looks great everywhere</b> &mdash; automatic light and dark theme support.</li>
         </ul>
 
-        <h3>Keyboard shortcuts</h3>
+        <h3>⌨️ Keyboard shortcuts</h3>
         <p>All shortcuts are active only while the Easy Notes tool window is focused,
         so they never conflict with the rest of your IDE keymap:</p>
         <ul>
@@ -58,6 +63,11 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <p><b>1.0.1</b></p>
+        <ul>
+            <li>📌 Reopens the last note you were viewing after an IDE restart (falls back to the list on first run, or if that note was deleted).</li>
+            <li>Previous / next navigation is remembered too, so you land on the exact note you left, not only the one you originally clicked.</li>
+        </ul>
         <p><b>1.0.0 &mdash; Initial release</b> 🎉</p>
         <ul>
             <li>📝 Ruled legal-pad note editor with automatic saving and global persistence.</li>
