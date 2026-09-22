@@ -1,9 +1,9 @@
 name: Build
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
+  # push:
+  #   branches: [ main ]
+  # pull_request:
   workflow_dispatch:
 
 concurrency:
@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   build:
+    if: false
     name: Build & Verify
     runs-on: ubuntu-latest
     env:

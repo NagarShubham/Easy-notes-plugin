@@ -27,6 +27,28 @@ class NotesService : PersistentStateComponent<NotesService.State> {
     class State {
         @get:XCollection(style = XCollection.Style.v2)
         var notes: MutableList<Note> = mutableListOf()
+
+        /**
+         * Id of the note the user most recently opened in the editor, so it can
+         * be reopened on the next IDE launch. Empty only on a fresh install (no
+         * note ever opened); in that case the list is shown by default. The id is
+         * kept even when the user navigates back to the list, so the last note is
+         * always restored unless it has since been deleted.
+         */
+        var lastOpenedNoteId: String = ""
+
+        /**
+         * Font family used to render every note's title and body. Empty means
+         * "use the IDE default font"; otherwise it is a font family name such as
+         * "Monospaced" or "SansSerif". Applied globally across all notes.
+         */
+        var fontFamily: String = ""
+
+        /**
+         * Base font size (points) for note bodies; titles are rendered slightly
+         * larger and bold. `0` means "use the IDE default size".
+         */
+        var fontSize: Int = 0
     }
 
     private var state = State()
@@ -47,9 +69,6 @@ class NotesService : PersistentStateComponent<NotesService.State> {
 
     /** Cheap emptiness check that avoids copying the backing list. */
     fun isEmpty(): Boolean = state.notes.isEmpty()
-
-    /** Cheap note count that avoids copying the backing list. */
-    fun count(): Int = state.notes.size
 
     fun findNote(id: String): Note? = state.notes.firstOrNull { it.id == id }
 
@@ -95,6 +114,41 @@ class NotesService : PersistentStateComponent<NotesService.State> {
         if (state.notes.removeAll { it.id in idSet }) {
             fireChanged()
         }
+    }
+    // endregion
+
+    // region Last opened note
+    /**
+     * The note the user most recently opened, or `null` on a fresh install where
+     * no note has been opened yet. Used to restore the editor on the next launch.
+     * Persisted with the rest of the state; setting it does not fire a change
+     * event.
+     */
+    fun getLastOpenedNoteId(): String? = state.lastOpenedNoteId.ifBlank { null }
+
+    fun setLastOpenedNoteId(id: String) {
+        state.lastOpenedNoteId = id
+    }
+    // endregion
+
+    // region Font settings
+    /**
+     * The font family applied to every note, or `null` to use the IDE default.
+     */
+    fun getFontFamily(): String? = state.fontFamily.ifBlank { null }
+
+    /** The base body font size in points, or `null` to use the IDE default. */
+    fun getFontSize(): Int? = state.fontSize.takeIf { it > 0 }
+
+    /**
+     * Updates the global note font. `family` of `null`/blank and `size` of `0`
+     * mean "use the IDE default". Notifies listeners so open panels restyle
+     * immediately.
+     */
+    fun setFont(family: String?, size: Int) {
+        state.fontFamily = family?.trim().orEmpty()
+        state.fontSize = if (size > 0) size else 0
+        fireChanged()
     }
     // endregion
 
