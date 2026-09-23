@@ -52,7 +52,5 @@ class Note {
 enum class SortKey(val label: String) {
     TITLE("Title"),
     CREATED("Created date"),
-    MODIFIED("Last modified");
-
-    override fun toString(): String = label
+    MODIFIED("Last modified")
 }

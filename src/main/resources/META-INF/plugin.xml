@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.snagar.easynotes</id>
     <name>Easy Notes</name>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
     <vendor email="shubham786nagar@gmail.com" url="https://github.com/NagarShubham">Shubham Nagar</vendor>
 
     <description><![CDATA[
@@ -63,21 +63,15 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <p><b>1.0.2</b></p>
+        <ul>
+            <li>🎨 <b>Square color chips</b> &mdash; each note's color now shows as a neat square swatch in the list, not a stretched bar.</li>
+            <li>🪶 Smaller, faster plugin.</li>
+        </ul>
         <p><b>1.0.1</b></p>
         <ul>
             <li>📌 Reopens the last note you were viewing after an IDE restart (falls back to the list on first run, or if that note was deleted).</li>
             <li>Previous / next navigation is remembered too, so you land on the exact note you left, not only the one you originally clicked.</li>
-        </ul>
-        <p><b>1.0.0 &mdash; Initial release</b> 🎉</p>
-        <ul>
-            <li>📝 Ruled legal-pad note editor with automatic saving and global persistence.</li>
-            <li>🗂️ Searchable, sortable notes list with a single-click, single-window editor.</li>
-            <li>🎨 Custom note titles and per-note background colors.</li>
-            <li>📌 Pin notes to the top and ⭐ mark favorites.</li>
-            <li>⚡ Keyboard shortcuts plus previous/next navigation.</li>
-            <li>🗑️ Selective and bulk delete, always with confirmation.</li>
-            <li>🔁 JSON &amp; Markdown import/export with conflict handling.</li>
-            <li>🌗 Light and dark theme support.</li>
         </ul>
     ]]></change-notes>
 
@@ -86,8 +80,7 @@
 
     <depends>com.intellij.modules.platform</depends>
 
-    <extensions defaultExtensionPoint="true" defaultExtensionNs="com.intellij">
-        <applicationService serviceImplementation="com.snagar.easynotes.service.NotesService"/>
+    <extensions defaultExtensionNs="com.intellij">
         <notificationGroup id="Easy Notes" displayType="BALLOON"/>
         <toolWindow id="Easy Notes"
                     anchor="right"

@@ -3,18 +3,20 @@ package com.snagar.easynotes.io
 import com.snagar.easynotes.model.Note
 import com.snagar.easynotes.service.NotesService
 import java.time.Instant
+import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.UUID
 
 /** What to do when an imported note collides with an existing one (same id). */
-enum class ImportConflictPolicy {
+internal enum class ImportConflictPolicy {
     SKIP,
     OVERWRITE,
     KEEP_BOTH
 }
 
 /** Summary of an import run, for user feedback. */
-data class ImportSummary(
+internal data class ImportSummary(
     var added: Int = 0,
     var overwritten: Int = 0,
     var skipped: Int = 0,
@@ -27,7 +29,7 @@ data class ImportSummary(
  * Serialization helpers for notes (JSON + Markdown) and the import merge logic
  * with duplicate detection and conflict handling.
  */
-object NotesIO {
+internal object NotesIO {
 
     private val isoFormatter: DateTimeFormatter =
         DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss").withZone(ZoneId.systemDefault())
@@ -199,12 +201,11 @@ object NotesIO {
                     existing.colorRgb = note.colorRgb
                     existing.pinned = note.pinned
                     existing.favorite = note.favorite
-                    existing.modifiedAt = System.currentTimeMillis()
-                    service.fireChanged()
+                    service.touchNote(existing)
                     summary.overwritten++
                 }
                 ImportConflictPolicy.KEEP_BOTH -> {
-                    note.id = java.util.UUID.randomUUID().toString()
+                    note.id = UUID.randomUUID().toString()
                     service.addNote(note)
                     summary.renamed++
                 }
@@ -237,7 +238,7 @@ object NotesIO {
     }
 
     private fun parseInstant(value: String): Long? = try {
-        java.time.LocalDateTime.parse(value.trim(), isoFormatter)
+        LocalDateTime.parse(value.trim(), isoFormatter)
             .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
     } catch (_: Exception) {
         try {
@@ -249,7 +250,7 @@ object NotesIO {
 
     /** Ensures required fields are sane after deserialization. */
     private fun normalize(note: Note): Note {
-        if (note.id.isBlank()) note.id = java.util.UUID.randomUUID().toString()
+        if (note.id.isBlank()) note.id = UUID.randomUUID().toString()
         if (note.createdAt <= 0L) note.createdAt = System.currentTimeMillis()
         if (note.modifiedAt <= 0L) note.modifiedAt = note.createdAt
         return note

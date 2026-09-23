@@ -53,6 +53,49 @@ class NotesIOTest {
         assertEquals("fallback-title", parsed.title)
         assertEquals("just some content", parsed.content)
     }
+
+    @Test
+    fun `markdown output has heading and a trailing newline`() {
+        val md = NotesIO.noteToMarkdown(Note().apply { title = "Title"; content = "no newline" })
+
+        assertTrue(md.contains("# Title"))
+        assertTrue(md.endsWith("\n"))
+    }
+
+    @Test
+    fun `markdown timestamps round-trip at second precision`() {
+        val note = Note().apply {
+            title = "T"; content = "body"
+            createdAt = 1_700_000_000_000L; modifiedAt = 1_700_000_050_000L
+        }
+
+        val parsed = NotesIO.parseMarkdown(NotesIO.noteToMarkdown(note), "fallback")
+
+        assertEquals(note.createdAt, parsed.createdAt)
+        assertEquals(note.modifiedAt, parsed.modifiedAt)
+    }
+
+    @Test
+    fun `markdown frontmatter is parsed even without a heading`() {
+        val md = "---\nid: abc\npinned: true\nfavorite: true\ncolor: #C8E6C9\n---\n\nBody without heading"
+
+        val parsed = NotesIO.parseMarkdown(md, "fallback")
+
+        assertEquals("fallback", parsed.title)
+        assertEquals("abc", parsed.id)
+        assertTrue(parsed.pinned)
+        assertTrue(parsed.favorite)
+        assertEquals(0xC8E6C9, parsed.colorRgb)
+        assertEquals("Body without heading", parsed.content)
+    }
+
+    @Test
+    fun `markdown normalizes CRLF line endings`() {
+        val parsed = NotesIO.parseMarkdown("# Title\r\n\r\nline1\r\nline2", "fallback")
+
+        assertEquals("Title", parsed.title)
+        assertEquals("line1\nline2", parsed.content)
+    }
     // endregion
 
     // region JSON
@@ -112,14 +155,36 @@ class NotesIOTest {
         assertTrue(NotesIO.parseJson("{ not valid json").isEmpty())
         assertTrue(NotesIO.parseJson("").isEmpty())
     }
+
+    @Test
+    fun `json backup of an empty list parses to nothing`() {
+        assertTrue(NotesIO.parseJson(NotesIO.toJsonBackup(emptyList())).isEmpty())
+    }
+
+    @Test
+    fun `json parse masks colorRgb to 24 bits`() {
+        val parsed = NotesIO.parseJson("""{"title":"X","colorRgb":301989887}""")
+        assertEquals(0xFFFFFF, parsed[0].colorRgb)
+    }
+
+    @Test
+    fun `json parse ignores unknown fields and keeps defaults`() {
+        val parsed = NotesIO.parseJson("""{"title":"only title","extra":"ignored"}""")
+        assertEquals(1, parsed.size)
+        assertEquals("only title", parsed[0].title)
+        assertEquals("", parsed[0].content)
+        assertEquals(Note.DEFAULT_COLOR_RGB, parsed[0].colorRgb)
+    }
     // endregion
 
     // region color helpers
     @Test
     fun `color hex round-trips`() {
         assertEquals("#FFFDE0", NotesIO.colorToHex(0xFFFDE0))
+        assertEquals("#FFFFFF", NotesIO.colorToHex(-1))
         assertEquals(0xFFFDE0, NotesIO.hexToColor("#FFFDE0"))
         assertEquals(0xFFFDE0, NotesIO.hexToColor("FFFDE0"))
+        assertEquals(0xC8E6C9, NotesIO.hexToColor("#c8e6c9"))
         assertNull(NotesIO.hexToColor("not-a-color"))
     }
     // endregion
@@ -153,14 +218,23 @@ class NotesIOTest {
     @Test
     fun `overwrite policy updates existing note in place`() {
         val service = NotesService()
-        val existing = service.createNote("Title").apply { content = "old" }
-        val incoming = existing.copy().apply { content = "new" }
+        val existing = service.createNote("Title").apply {
+            content = "old"; colorRgb = 0xFFFDE0; pinned = false; favorite = false
+        }
+        val incoming = existing.copy().apply {
+            title = "New title"; content = "new"; colorRgb = 0xC8E6C9; pinned = true; favorite = true
+        }
 
         val summary = NotesIO.importNotes(service, listOf(incoming), ImportConflictPolicy.OVERWRITE)
 
+        val stored = service.findNote(existing.id)!!
         assertEquals(1, summary.overwritten)
         assertEquals(1, service.getAllNotes().size)
-        assertEquals("new", service.findNote(existing.id)?.content)
+        assertEquals("New title", stored.title)
+        assertEquals("new", stored.content)
+        assertEquals(0xC8E6C9, stored.colorRgb)
+        assertTrue(stored.pinned)
+        assertTrue(stored.favorite)
     }
 
     @Test
@@ -185,6 +259,7 @@ class NotesIOTest {
 
         assertEquals(1, summary.renamed)
         assertEquals(2, service.getAllNotes().size)
+        assertEquals("old", service.findNote(existing.id)?.content)
         assertNotEquals(existing.id, incoming.id)
     }
 
@@ -196,6 +271,28 @@ class NotesIOTest {
         assertFalse(NotesIO.hasConflicts(service, listOf(existing.copy())))
         assertTrue(NotesIO.hasConflicts(service, listOf(existing.copy().apply { content = "changed" })))
         assertFalse(NotesIO.hasConflicts(service, listOf(Note().apply { title = "unrelated" })))
+    }
+
+    @Test
+    fun `import summary total sums all outcomes for a mixed batch`() {
+        val service = NotesService()
+        val existing = service.createNote("Existing").apply { content = "old" }
+
+        val summary = NotesIO.importNotes(
+            service,
+            listOf(
+                Note().apply { title = "Fresh 1" },
+                Note().apply { title = "Fresh 2" },
+                existing.copy()
+            ),
+            ImportConflictPolicy.KEEP_BOTH
+        )
+
+        assertEquals(2, summary.added)
+        assertEquals(1, summary.skipped)
+        assertEquals(0, summary.overwritten)
+        assertEquals(0, summary.renamed)
+        assertEquals(3, summary.total)
     }
     // endregion
 }

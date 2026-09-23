@@ -1,6 +1,7 @@
 package com.snagar.easynotes.ui
 
 import com.intellij.ui.components.JBTextArea
+import com.snagar.easynotes.model.Note
 import java.awt.Color
 import java.awt.Graphics
 import java.awt.Graphics2D
@@ -13,14 +14,14 @@ import java.awt.RenderingHints
  */
 class RuledTextArea : JBTextArea() {
 
-    var paperColor: Color = Color(0xFFFDE0)
+    var paperColor: Color = Color(Note.DEFAULT_COLOR_RGB)
         set(value) {
             field = value
             repaint()
         }
 
-    private val ruleColor: Color get() = Color(90, 90, 90, 38)
-    private val marginColor: Color get() = Color(210, 110, 110, 80)
+    private val ruleColor = Color(90, 90, 90, 38)
+    private val marginColor = Color(210, 110, 110, 80)
 
     init {
         isOpaque = false
@@ -32,15 +33,12 @@ class RuledTextArea : JBTextArea() {
         val g2 = g.create() as Graphics2D
         try {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-
-            // Paper.
             g2.color = paperColor
             g2.fillRect(0, 0, width, height)
 
             val fm = getFontMetrics(font)
             val lineHeight = fm.height
             if (lineHeight > 0) {
-                // Rule lines, sitting just below each text baseline.
                 g2.color = ruleColor
                 var y = insets.top + fm.ascent + fm.descent
                 while (y < height) {
@@ -49,7 +47,6 @@ class RuledTextArea : JBTextArea() {
                 }
             }
 
-            // Left margin line.
             val marginX = insets.left - 6
             if (marginX > 2) {
                 g2.color = marginColor
