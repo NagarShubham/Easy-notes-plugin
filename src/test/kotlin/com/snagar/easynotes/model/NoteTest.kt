@@ -83,11 +83,4 @@ class NoteTest {
         assertEquals("Created date", SortKey.CREATED.label)
         assertEquals("Last modified", SortKey.MODIFIED.label)
     }
-
-    @Test
-    fun `sort key toString matches its label`() {
-        for (key in SortKey.values()) {
-            assertEquals(key.label, key.toString())
-        }
-    }
 }

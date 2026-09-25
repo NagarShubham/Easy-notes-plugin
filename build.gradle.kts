@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.snagar.easynotes"
-version = "1.0.1"
+version = "1.0.2"
 
 repositories {
     mavenCentral()
@@ -43,10 +43,6 @@ dependencies {
             local(localIdePath)
         }
 
-        // Kotlin plugin is required because this plugin is written in Kotlin.
-        bundledPlugin("org.jetbrains.kotlin")
-
-        // Plugin Verifier, used by the `verifyPlugin` task (see below).
         pluginVerifier()
     }
 
@@ -84,8 +80,7 @@ intellijPlatform {
 
     // Marketplace plugin signing. `signPlugin` runs automatically before
     // `publishPlugin` when these secrets are provided (via env vars in CI or
-    // locally); otherwise it is skipped. See docs/PUBLISHING or the release
-    // workflow for how the certificate/key are supplied.
+    // locally); otherwise it is skipped.
     signing {
         certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
         privateKey = providers.environmentVariable("PRIVATE_KEY")
@@ -106,6 +101,14 @@ intellijPlatform {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+tasks.processResources {
+    exclude("**/.DS_Store")
+}
+
+tasks.withType<Jar>().configureEach {
+    exclude("**/.DS_Store")
 }
 
 kotlin {

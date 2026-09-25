@@ -165,7 +165,7 @@ class NotesService : PersistentStateComponent<NotesService.State> {
         listeners.remove(listener)
     }
 
-    fun fireChanged() {
+    private fun fireChanged() {
         for (l in listeners) {
             l.notesChanged()
         }

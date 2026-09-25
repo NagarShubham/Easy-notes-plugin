@@ -19,7 +19,6 @@ import com.intellij.openapi.actionSystem.DataSink
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.UiDataProvider
 import com.intellij.openapi.fileChooser.FileChooser
-import com.intellij.openapi.fileChooser.FileChooserDescriptor
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
@@ -118,11 +117,6 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     private val serviceListener = NotesService.NotesChangeListener {
         SwingUtilities.invokeLater { onNotesChanged() }
     }
-
-    private val predefinedColors = intArrayOf(
-        0xFFFDE0, 0xFFF6B8, 0xC8E6C9, 0xBBDEFB, 0xF8BBD0, 0xFFE0B2,
-        0xE1BEE7, 0xB2DFDB, 0xFFCDD2, 0xD7CCC8, 0xE0E0E0, 0xFFFFFF
-    )
 
     init {
         border = JBUI.Borders.empty()
@@ -300,6 +294,11 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         saveAlarm.addRequest({ saveCurrent() }, 400)
     }
 
+    private fun flushPendingSave() {
+        saveAlarm.cancelAllRequests()
+        saveCurrent()
+    }
+
     private fun saveCurrent() {
         val note = currentNote() ?: return
         var changed = false
@@ -362,10 +361,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     }
 
     private fun showListView() {
-        if (view == View.DETAIL) {
-            saveAlarm.cancelAllRequests()
-            saveCurrent()
-        }
+        if (view == View.DETAIL) flushPendingSave()
         // Note: we deliberately keep the last-opened note id here. Navigating back
         // to the list should not make the IDE forget which note to reopen next
         // launch; the list is the default only on a fresh install (no id yet) or
@@ -444,7 +440,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     }
 
     /** Deletes every note (respecting no filter), after a single confirmation. */
-    fun deleteAll() {
+    private fun deleteAll() {
         val all = service.getAllNotes()
         if (all.isEmpty()) {
             Messages.showInfoMessage(project, "There are no notes to delete.", "Delete All Notes")
@@ -492,24 +488,16 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     // region detail view
     private fun openDetail(note: Note) {
         ordered = computeOrdered()
-        currentId = note.id
         loadNote(note)
         view = View.DETAIL
         (cards.layout as CardLayout).show(cards, View.DETAIL.name)
         SwingUtilities.invokeLater { contentArea.requestFocusInWindow() }
     }
 
-    private fun loadNote(note: Note?) {
+    private fun loadNote(note: Note) {
         loading = true
         try {
-            currentId = note?.id
-            if (note == null) {
-                titleField.text = ""
-                contentArea.text = ""
-                applyPaperColor(Note.DEFAULT_COLOR_RGB)
-                updateHeader()
-                return
-            }
+            currentId = note.id
             titleField.text = note.title
             contentArea.text = note.content
             contentArea.caretPosition = 0
@@ -536,23 +524,21 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
     private fun applyPaperColor(rgb: Int) {
         val paper = Color(rgb)
-        val fg = Color(0x2B2B2B)
         contentArea.paperColor = paper
-        contentArea.foreground = fg
-        contentArea.caretColor = fg
+        contentArea.foreground = INK
+        contentArea.caretColor = INK
         contentScroll.viewport.background = paper
         contentScroll.background = paper
         titleField.background = paper
-        titleField.foreground = fg
-        titleField.caretColor = fg
+        titleField.foreground = INK
+        titleField.caretColor = INK
         paperPanel.background = paper
         paperPanel.repaint()
     }
 
     private fun moveBy(delta: Int) {
         if (view != View.DETAIL) return
-        saveAlarm.cancelAllRequests()
-        saveCurrent()
+        flushPendingSave()
         ordered = computeOrdered()
         if (ordered.isEmpty()) { showListView(); return }
         val cur = ordered.indexOfFirst { it.id == currentId }
@@ -567,7 +553,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
     // region public actions (invoked by IDE actions)
     fun createNote() {
-        if (view == View.DETAIL) { saveAlarm.cancelAllRequests(); saveCurrent() }
+        if (view == View.DETAIL) flushPendingSave()
         searchQuery = ""
         listSearch.text = ""
         favoritesOnly = false
@@ -675,7 +661,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         grid.border = JBUI.Borders.empty(8)
         val popupRef = arrayOfNulls<JBPopup>(1)
 
-        for (rgb in predefinedColors) {
+        for (rgb in PREDEFINED_COLORS) {
             val swatch = JButton()
             swatch.preferredSize = Dimension(28, 28)
             swatch.background = Color(rgb)
@@ -742,21 +728,20 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     }
 
     private fun showFontDialog() {
-        val current = FontChoice(
-            family = service.getFontFamily() ?: defaultContentFont.family,
-            size = service.getFontSize() ?: defaultContentFont.size
+        val dialog = FontSettingsDialog(
+            project,
+            service.getFontFamily() ?: defaultContentFont.family,
+            service.getFontSize() ?: defaultContentFont.size
         )
-        val dialog = FontSettingsDialog(project, current)
         if (!dialog.showAndGet()) return
-        val chosen = dialog.selectedFont()
-        service.setFont(chosen.family, chosen.size)
+        service.setFont(dialog.selectedFamily(), dialog.selectedSize())
         applyFont()
     }
     // endregion
 
     // region import / export
-    fun importNotes() {
-        val descriptor: FileChooserDescriptor =
+    private fun importNotes() {
+        val descriptor =
             FileChooserDescriptorFactory.createMultipleFilesNoJarsDescriptor()
                 .withTitle("Import Notes")
                 .withDescription("Select JSON or Markdown note files")
@@ -809,7 +794,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         )
     }
 
-    fun exportNotes() {
+    private fun exportNotes() {
         val all = service.getAllNotes()
         if (all.isEmpty()) {
             Messages.showInfoMessage(project, "There are no notes to export.", "Export Notes")
@@ -847,11 +832,9 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     }
 
     private fun exportJson(notes: List<Note>) {
-        val descriptor = FileChooserDescriptorFactory.createSingleFolderDescriptor()
-            .withTitle("Choose Export Folder")
-        val dir = FileChooser.chooseFile(descriptor, project, null) ?: return
+        val dir = chooseExportFolder() ?: return
         val fileName = if (notes.size == 1) sanitize(notes[0].displayTitle()) + ".json" else "notes-backup.json"
-        val target = File(dir.path, fileName)
+        val target = File(dir, fileName)
         try {
             target.writeText(NotesIO.toJsonBackup(notes))
             Messages.showInfoMessage(project, "Exported ${notes.size} note(s) to\n${target.path}", "Export Complete")
@@ -861,9 +844,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     }
 
     private fun exportMarkdown(notes: List<Note>) {
-        val descriptor = FileChooserDescriptorFactory.createSingleFolderDescriptor()
-            .withTitle("Choose Export Folder")
-        val dir = FileChooser.chooseFile(descriptor, project, null) ?: return
+        val dir = chooseExportFolder() ?: return
         val used = HashSet<String>()
         try {
             for (note in notes) {
@@ -873,7 +854,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
                 while (!used.add(candidate)) {
                     candidate = "$name-${i++}.md"
                 }
-                File(dir.path, candidate).writeText(NotesIO.noteToMarkdown(note))
+                File(dir, candidate).writeText(NotesIO.noteToMarkdown(note))
             }
             Messages.showInfoMessage(project, "Exported ${notes.size} note(s) to\n${dir.path}", "Export Complete")
         } catch (e: IOException) {
@@ -881,8 +862,15 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         }
     }
 
+    private fun chooseExportFolder(): File? {
+        val descriptor = FileChooserDescriptorFactory.createSingleFolderDescriptor()
+            .withTitle("Choose Export Folder")
+        val dir = FileChooser.chooseFile(descriptor, project, null) ?: return null
+        return File(dir.path)
+    }
+
     private fun sanitize(name: String): String =
-        name.replace(Regex("[^A-Za-z0-9-_ ]"), "_").trim().ifEmpty { "note" }.take(80)
+        name.replace(UNSAFE_FILENAME_CHARS, "_").trim().ifEmpty { "note" }.take(80)
     // endregion
 
     override fun uiDataSnapshot(sink: DataSink) {
@@ -890,9 +878,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     }
 
     fun dispose() {
-        // Flush any pending edit so nothing is lost when the tool window closes.
-        saveAlarm.cancelAllRequests()
-        if (view == View.DETAIL) saveCurrent()
+        if (view == View.DETAIL) flushPendingSave() else saveAlarm.cancelAllRequests()
         service.removeChangeListener(serviceListener)
         Disposer.dispose(disposable)
     }
@@ -901,6 +887,13 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         val NOTES_PANEL_KEY: DataKey<NotesPanel> = DataKey.create("com.snagar.easynotes.panel")
 
         fun from(e: AnActionEvent): NotesPanel? = e.getData(NOTES_PANEL_KEY)
+
+        private val INK = Color(0x2B2B2B)
+        private val UNSAFE_FILENAME_CHARS = Regex("[^A-Za-z0-9-_ ]")
+        private val PREDEFINED_COLORS = intArrayOf(
+            0xFFFDE0, 0xFFF6B8, 0xC8E6C9, 0xBBDEFB, 0xF8BBD0, 0xFFE0B2,
+            0xE1BEE7, 0xB2DFDB, 0xFFCDD2, 0xD7CCC8, 0xE0E0E0, 0xFFFFFF
+        )
     }
 }
 
@@ -944,29 +937,27 @@ private class DeleteNotesDialog(
         }
 }
 
-/** The font family + base size chosen for all notes. */
-internal data class FontChoice(val family: String, val size: Int)
-
 /**
  * A dialog to pick the font family and size applied to every note. Shows a live
  * preview so the effect is visible before committing.
  */
 private class FontSettingsDialog(
     project: Project?,
-    private val initial: FontChoice
+    private val initialFamily: String,
+    private val initialSize: Int
 ) : DialogWrapper(project) {
 
     private val families: Array<String> =
         GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames
 
     private val familyCombo = JComboBox(families)
-    private val sizeCombo = JComboBox(FONT_SIZES.toTypedArray())
+    private val sizeCombo = JComboBox(arrayOf(8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 22, 24, 28, 32, 36))
     private val preview = JBLabel()
 
     init {
         title = "Note Font"
-        familyCombo.selectedItem = initial.family.takeIf { families.contains(it) } ?: families.firstOrNull()
-        sizeCombo.selectedItem = initial.size
+        familyCombo.selectedItem = initialFamily.takeIf { families.contains(it) } ?: families.firstOrNull()
+        sizeCombo.selectedItem = initialSize
         sizeCombo.isEditable = true
         familyCombo.addActionListener { updatePreview() }
         sizeCombo.addActionListener { updatePreview() }
@@ -999,20 +990,17 @@ private class FontSettingsDialog(
         val raw = sizeCombo.selectedItem
         val value = when (raw) {
             is Int -> raw
-            else -> raw?.toString()?.trim()?.toIntOrNull() ?: initial.size
+            else -> raw?.toString()?.trim()?.toIntOrNull() ?: initialSize
         }
         return value.coerceIn(6, 96)
     }
 
     private fun updatePreview() {
-        val family = familyCombo.selectedItem as? String ?: initial.family
+        val family = familyCombo.selectedItem as? String ?: initialFamily
         preview.font = Font(family, Font.PLAIN, currentSize())
     }
 
-    fun selectedFont(): FontChoice =
-        FontChoice(familyCombo.selectedItem as? String ?: initial.family, currentSize())
+    fun selectedFamily(): String = familyCombo.selectedItem as? String ?: initialFamily
 
-    private companion object {
-        val FONT_SIZES = listOf(8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 22, 24, 28, 32, 36)
-    }
+    fun selectedSize(): Int = currentSize()
 }

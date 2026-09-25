@@ -173,4 +173,4 @@ internal object Json {
 }
 
 /** Thrown when a JSON document cannot be parsed. */
-class JsonException(message: String) : RuntimeException(message)
+internal class JsonException(message: String) : RuntimeException(message)
