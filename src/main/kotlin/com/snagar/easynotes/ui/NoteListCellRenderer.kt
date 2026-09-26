@@ -1,6 +1,7 @@
 package com.snagar.easynotes.ui
 
 import com.snagar.easynotes.model.Note
+import com.snagar.easynotes.search.TextSearch
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
@@ -24,6 +25,13 @@ import javax.swing.ListCellRenderer
 
 /** Two-line list renderer showing a color swatch, title, dates, and pin/star. */
 class NoteListCellRenderer : JPanel(BorderLayout()), ListCellRenderer<Note> {
+
+    /**
+     * The active global-search query. When non-blank, matching terms are
+     * highlighted in the title and the subtitle shows a matched content snippet
+     * instead of the timestamps. Set by [NotesPanel] before each list reload.
+     */
+    var query: String = ""
 
     private val dateFormat = SimpleDateFormat("MMM d, yyyy HH:mm", Locale.getDefault())
 
@@ -86,16 +94,32 @@ class NoteListCellRenderer : JPanel(BorderLayout()), ListCellRenderer<Note> {
         subtitleLabel.foreground = if (isSelected) fg else UIUtil.getContextHelpForeground()
 
         swatch.background = JBColor(Color(value.colorRgb), Color(value.colorRgb))
-        titleLabel.text = value.displayTitle()
-        subtitleLabel.text = buildString {
-            append("Created ").append(dateFormat.format(Date(value.createdAt)))
-            if (value.modifiedAt > value.createdAt) {
-                append("   ·   Modified ").append(dateFormat.format(Date(value.modifiedAt)))
+
+        val q = query.trim()
+        if (q.isEmpty()) {
+            // Plain text (JLabel treats non-<html> strings as literal, so note
+            // titles/content can't accidentally inject markup).
+            titleLabel.text = value.displayTitle()
+            subtitleLabel.text = datesText(value)
+        } else {
+            titleLabel.text = "<html>" + TextSearch.highlightHtml(value.displayTitle(), q) + "</html>"
+            val snippet = TextSearch.snippet(value.content, q)
+            subtitleLabel.text = if (snippet != null) {
+                "<html>" + TextSearch.highlightHtml(snippet, q) + "</html>"
+            } else {
+                datesText(value)
             }
         }
 
         pinIcon.isVisible = value.pinned
         starIcon.isVisible = value.favorite
         return this
+    }
+
+    private fun datesText(value: Note): String = buildString {
+        append("Created ").append(dateFormat.format(Date(value.createdAt)))
+        if (value.modifiedAt > value.createdAt) {
+            append("   \u00B7   Modified ").append(dateFormat.format(Date(value.modifiedAt)))
+        }
     }
 }

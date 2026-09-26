@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.snagar.easynotes</id>
     <name>Easy Notes</name>
-    <version>1.0.2</version>
+    <version>1.1.0</version>
     <vendor email="shubham786nagar@gmail.com" url="https://github.com/NagarShubham">Shubham Nagar</vendor>
 
     <description><![CDATA[
@@ -63,6 +63,12 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <p><b>1.1.0</b></p>
+        <ul>
+            <li>🔍 <b>Find in a note</b> &mdash; matches highlight as you type, with a &ldquo;3 of 12&rdquo; counter and smooth jumps between them.</li>
+            <li>🗂️ <b>Search every note at once</b> &mdash; the best matches rise to the top, highlighted, with a preview in the list.</li>
+            <li>✨ <b>Land on the match</b> &mdash; open a result and your search follows, ready and highlighted.</li>
+        </ul>
         <p><b>1.0.2</b></p>
         <ul>
             <li>🎨 <b>Square color chips</b> &mdash; each note's color now shows as a neat square swatch in the list, not a stretched bar.</li>
