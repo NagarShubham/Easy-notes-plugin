@@ -2,7 +2,7 @@
 
 An IntelliJ Platform plugin for capturing ideas, TODOs, snippets, and meeting notes inside the IDE. Notes live in a legal-pad editor, auto-save, and persist across sessions and projects.
 
-Plugin ID: `com.snagar.easynotes` · Version: `1.0.2` · License: [MIT](LICENSE)
+Plugin ID: `com.snagar.easynotes` · Version: `1.1.0` · License: [MIT](LICENSE)
 
 Works in IntelliJ IDEA, Android Studio, PyCharm, WebStorm, GoLand, PhpStorm, Rider, CLion, and other IntelliJ-based IDEs (build **242** / 2024.2 and later).
 
@@ -31,7 +31,7 @@ Works in IntelliJ IDEA, Android Studio, PyCharm, WebStorm, GoLand, PhpStorm, Rid
 
 ## Install from a zip
 
-1. Build (see [Build](#build)) or download `easy-notes-1.0.2.zip` from `build/distributions/`.
+1. Build (see [Build](#build)) or download `easy-notes-1.1.0.zip` from `build/distributions/`.
 2. In the IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…**
 3. Select the zip and restart when prompted.
 4. Open **View → Tool Windows → Easy Notes** (right dock by default).
@@ -90,7 +90,7 @@ gradlew.bat buildPlugin
 .\gradlew.bat buildPlugin
 ```
 
-Output zip: `build/distributions/easy-notes-1.0.2.zip`
+Output zip: `build/distributions/easy-notes-1.1.0.zip`
 
 ### Target IDE for the sandbox build
 
@@ -177,7 +177,7 @@ The plugin id `com.snagar.easynotes` is **permanent** after the first upload. Do
 1. Generate a signing certificate ([Plugin Signing](https://plugins.jetbrains.com/docs/intellij/plugin-signing.html)).
 2. Sign and upload the zip once at [plugins.jetbrains.com/plugin/add](https://plugins.jetbrains.com/plugin/add) to create the listing. Attach MIT license, repo URL, and the images in `marketing/`.
 3. Add the four GitHub secrets above.
-4. Later versions: bump `version` in `build.gradle.kts` and `<version>` / `<change-notes>` in `plugin.xml`, then `git tag v1.0.2 && git push --tags`.
+4. Later versions: bump `version` in `build.gradle.kts` and `<version>` / `<change-notes>` in `plugin.xml`, then `git tag v1.1.0 && git push --tags`.
 
 A version with a suffix such as `1.0.0-beta.1` publishes to the **beta** channel; a plain `1.0.0` goes to **default**.
 
