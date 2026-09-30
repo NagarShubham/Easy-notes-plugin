@@ -4,6 +4,7 @@ import com.snagar.easynotes.io.ImportConflictPolicy
 import com.snagar.easynotes.io.NotesIO
 import com.snagar.easynotes.model.Note
 import com.snagar.easynotes.model.SortKey
+import com.snagar.easynotes.search.NoteSearchIndex
 import com.snagar.easynotes.service.NotesService
 import com.intellij.notification.NotificationAction
 import com.intellij.notification.NotificationGroupManager
@@ -57,6 +58,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import javax.swing.BorderFactory
+import javax.swing.BoxLayout
 import javax.swing.DefaultListModel
 import javax.swing.JButton
 import javax.swing.JColorChooser
@@ -89,6 +91,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     private val listModel = DefaultListModel<Note>()
     private val notesList = JBList(listModel)
     private val listSearch = SearchTextField()
+    private val listRenderer = NoteListCellRenderer()
 
     // Detail view
     private val indexLabel = JBLabel()
@@ -96,6 +99,9 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     private val contentArea = RuledTextArea()
     private val paperPanel = JPanel(BorderLayout())
     private val contentScroll = JBScrollPane(contentArea)
+
+    /** In-editor find bar for searching within the currently open note. */
+    private lateinit var inNoteSearch: InNoteSearchBar
 
     // Fonts used when the user hasn't chosen a custom font; captured once so we
     // can always fall back to the IDE default family/size.
@@ -165,7 +171,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         card.add(north, BorderLayout.NORTH)
 
         notesList.selectionMode = ListSelectionModel.MULTIPLE_INTERVAL_SELECTION
-        notesList.cellRenderer = NoteListCellRenderer()
+        notesList.cellRenderer = listRenderer
         notesList.emptyText.text = "No notes yet. Click + to create one."
         card.add(JBScrollPane(notesList), BorderLayout.CENTER)
         return card
@@ -179,7 +185,24 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         indexLabel.border = JBUI.Borders.emptyLeft(2)
         north.add(indexLabel, BorderLayout.WEST)
         north.add(createToolbar("Notes.DetailToolbar").component, BorderLayout.EAST)
-        card.add(north, BorderLayout.NORTH)
+
+        // The find bar sits directly beneath the toolbar and above the paper, and
+        // is hidden until the user invokes in-note search (Cmd/Ctrl+F in an open
+        // note, or by opening a note from a global search result).
+        inNoteSearch = InNoteSearchBar(
+            target = contentArea,
+            onClose = { contentArea.requestFocusInWindow() },
+            disposable = disposable,
+        )
+        inNoteSearch.isVisible = false
+
+        val northStack = JPanel()
+        northStack.layout = BoxLayout(northStack, BoxLayout.Y_AXIS)
+        north.alignmentX = LEFT_ALIGNMENT
+        inNoteSearch.alignmentX = LEFT_ALIGNMENT
+        northStack.add(north)
+        northStack.add(inNoteSearch)
+        card.add(northStack, BorderLayout.NORTH)
 
         defaultTitleFont = titleField.font.deriveFont(Font.BOLD, titleField.font.size2D + 3f)
         titleField.border = JBUI.Borders.empty(8, 14, 4, 10)
@@ -239,14 +262,14 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
                     val idx = notesList.locationToIndex(e.point)
                     val bounds = if (idx >= 0) notesList.getCellBounds(idx, idx) else null
                     if (idx >= 0 && bounds != null && bounds.contains(e.point)) {
-                        openDetail(listModel.get(idx))
+                        openDetail(listModel.get(idx), searchQuery.takeIf { it.isNotBlank() })
                     }
                 }
             }
         })
 
         notesList.registerKeyboardAction(
-            { notesList.selectedValue?.let { openDetail(it) } },
+            { notesList.selectedValue?.let { openDetail(it, searchQuery.takeIf { q -> q.isNotBlank() }) } },
             KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0),
             JComponent.WHEN_FOCUSED
         )
@@ -334,23 +357,42 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         if (favoritesOnly) notes = notes.filter { it.favorite }
         val q = searchQuery.trim().lowercase()
         if (q.isNotEmpty()) {
-            notes = notes.filter {
-                it.displayTitle().lowercase().contains(q) || it.content.lowercase().contains(q)
+            // Filter via the cached lowercase index so we don't re-lowercase every
+            // note's full body on each keystroke (see NoteSearchIndex).
+            notes = notes.filter { NoteSearchIndex.matches(it, q) }
+        }
+        // A single explicit Comparator (instead of a compareBy/thenBy chain) so
+        // the compiler emits one lambda class rather than several synthetic
+        // comparator classes. The ordering is identical:
+        //  1. pinned notes first;
+        //  2. when searching, higher relevance score, then most recently modified;
+        //  3. the chosen base sort (title asc, created asc, or modified desc).
+        val searching = q.isNotEmpty()
+        val comparator = Comparator<Note> { a, b ->
+            var cmp = b.pinned.compareTo(a.pinned) // true (pinned) before false
+            if (cmp != 0) return@Comparator cmp
+            if (searching) {
+                cmp = NoteSearchIndex.score(b, q).compareTo(NoteSearchIndex.score(a, q))
+                if (cmp != 0) return@Comparator cmp
+                cmp = b.modifiedAt.compareTo(a.modifiedAt)
+                if (cmp != 0) return@Comparator cmp
+            }
+            when (sortKey) {
+                SortKey.TITLE -> a.displayTitle().lowercase().compareTo(b.displayTitle().lowercase())
+                // FIFO: oldest created first, newest appended at the bottom.
+                SortKey.CREATED -> a.createdAt.compareTo(b.createdAt)
+                SortKey.MODIFIED -> b.modifiedAt.compareTo(a.modifiedAt)
             }
         }
-        val base: Comparator<Note> = when (sortKey) {
-            SortKey.TITLE -> compareBy { it.displayTitle().lowercase() }
-            // FIFO: oldest created first, newest appended at the bottom.
-            SortKey.CREATED -> compareBy { it.createdAt }
-            SortKey.MODIFIED -> compareByDescending { it.modifiedAt }
-        }
-        return notes.sortedWith(compareByDescending<Note> { it.pinned }.then(base))
+        return notes.sortedWith(comparator)
     }
     // endregion
 
     // region list view
     private fun reloadList() {
         ordered = computeOrdered()
+        // Let the renderer highlight matches / show snippets for the active query.
+        listRenderer.query = searchQuery
         val selectedIds = notesList.selectedValuesList.map { it.id }.toSet()
         listModel.clear()
         ordered.forEach { listModel.addElement(it) }
@@ -362,6 +404,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
     private fun showListView() {
         if (view == View.DETAIL) flushPendingSave()
+        if (::inNoteSearch.isInitialized) inNoteSearch.closeQuietly()
         // Note: we deliberately keep the last-opened note id here. Navigating back
         // to the list should not make the IDE forget which note to reopen next
         // launch; the list is the default only on a fresh install (no id yet) or
@@ -466,7 +509,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         val selected = notesList.selectedValuesList
         val group = DefaultActionGroup()
         if (selected.size == 1) {
-            group.add(action("Open") { openDetail(selected[0]) })
+            group.add(action("Open") { openDetail(selected[0], searchQuery.takeIf { it.isNotBlank() }) })
         }
         if (selected.isNotEmpty()) {
             val label = if (selected.size == 1) "Delete" else "Delete ${selected.size} Selected"
@@ -486,12 +529,23 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     // endregion
 
     // region detail view
-    private fun openDetail(note: Note) {
+    /**
+     * Opens [note] in the detail view. When [prefillQuery] is non-blank (i.e. the
+     * user arrived by selecting a global-search result), the in-note find bar is
+     * opened pre-filled with that term so the same text is instantly highlighted
+     * and scrolled into view — preserving search context across the transition.
+     */
+    private fun openDetail(note: Note, prefillQuery: String? = null) {
         ordered = computeOrdered()
         loadNote(note)
         view = View.DETAIL
         (cards.layout as CardLayout).show(cards, View.DETAIL.name)
-        SwingUtilities.invokeLater { contentArea.requestFocusInWindow() }
+        if (!prefillQuery.isNullOrBlank()) {
+            SwingUtilities.invokeLater { inNoteSearch.open(prefillQuery) }
+        } else {
+            inNoteSearch.closeQuietly()
+            SwingUtilities.invokeLater { contentArea.requestFocusInWindow() }
+        }
     }
 
     private fun loadNote(note: Note) {
@@ -510,6 +564,9 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         } finally {
             loading = false
         }
+        // Keep in-note highlights in sync when moving between notes (Prev/Next)
+        // while the find bar is open.
+        if (::inNoteSearch.isInitialized && inNoteSearch.isVisible) inNoteSearch.refresh()
     }
 
     private fun updateHeader() {
@@ -591,7 +648,19 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     /** Toggle to the list view (the toolbar list/back button). */
     fun goToList() = showListView()
 
+    /**
+     * Context-aware search entry point (toolbar button / Cmd+F):
+     *  - in the DETAIL view, opens the in-note find bar (seeded with the current
+     *    selection, or its last query) to search within the open note;
+     *  - in the LIST view, focuses the global list search field.
+     */
     fun focusSearch() {
+        if (view == View.DETAIL) {
+            val seed = contentArea.selectedText?.takeIf { it.isNotBlank() && !it.contains('\n') }
+                ?: inNoteSearch.currentQuery().takeIf { it.isNotBlank() }
+            inNoteSearch.open(seed)
+            return
+        }
         showListView()
         SwingUtilities.invokeLater { listSearch.requestFocusInWindow() }
     }
@@ -625,7 +694,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
             if (view == View.LIST) reloadList()
         })
         val sortGroup = DefaultActionGroup("Sort By", true)
-        for (key in SortKey.values()) {
+        for (key in SortKey.entries) {
             sortGroup.add(action((if (sortKey == key) "\u2713 " else "") + key.label) {
                 sortKey = key
                 if (view == View.LIST) reloadList()
