@@ -4,7 +4,8 @@ import com.snagar.easynotes.model.Note
 import com.snagar.easynotes.search.TextSearch
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
-import com.intellij.util.ui.UIUtil
+import com.intellij.util.ui.ListUiUtil
+import com.intellij.util.ui.NamedColorUtil
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Component
@@ -87,11 +88,10 @@ class NoteListCellRenderer : JPanel(BorderLayout()), ListCellRenderer<Note> {
         isSelected: Boolean,
         cellHasFocus: Boolean
     ): Component {
-        val bg = if (isSelected) UIUtil.getListSelectionBackground(true) else UIUtil.getListBackground()
-        val fg = if (isSelected) UIUtil.getListSelectionForeground(true) else UIUtil.getListForeground()
-        background = bg
+        background = ListUiUtil.WithTallRow.background(list, isSelected, cellHasFocus)
+        val fg = ListUiUtil.WithTallRow.foreground(isSelected, cellHasFocus)
         titleLabel.foreground = fg
-        subtitleLabel.foreground = if (isSelected) fg else UIUtil.getContextHelpForeground()
+        subtitleLabel.foreground = if (isSelected) fg else NamedColorUtil.getInactiveTextColor()
 
         swatch.background = JBColor(Color(value.colorRgb), Color(value.colorRgb))
 
