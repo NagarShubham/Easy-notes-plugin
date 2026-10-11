@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.snagar.easynotes</id>
     <name>Easy Notes</name>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
     <vendor email="shubham786nagar@gmail.com" url="https://github.com/NagarShubham">Shubham Nagar</vendor>
 
     <description><![CDATA[
@@ -63,21 +63,16 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <p><b>1.1.1</b></p>
+        <ul>
+            <li>⚡ <b>Faster feel</b> &mdash; the notes list, search, and editor stay responsive as you type and switch notes.</li>
+            <li>🐛 <b>Polished experience</b> &mdash; known issues are fixed so Easy Notes stays stable across current IDEs.</li>
+        </ul>
         <p><b>1.1.0</b></p>
         <ul>
             <li>🔍 <b>Find in a note</b> &mdash; matches highlight as you type, with a &ldquo;3 of 12&rdquo; counter and smooth jumps between them.</li>
             <li>🗂️ <b>Search every note at once</b> &mdash; the best matches rise to the top, highlighted, with a preview in the list.</li>
             <li>✨ <b>Land on the match</b> &mdash; open a result and your search follows, ready and highlighted.</li>
-        </ul>
-        <p><b>1.0.2</b></p>
-        <ul>
-            <li>🎨 <b>Square color chips</b> &mdash; each note's color now shows as a neat square swatch in the list, not a stretched bar.</li>
-            <li>🪶 Smaller, faster plugin.</li>
-        </ul>
-        <p><b>1.0.1</b></p>
-        <ul>
-            <li>📌 Reopens the last note you were viewing after an IDE restart (falls back to the list on first run, or if that note was deleted).</li>
-            <li>Previous / next navigation is remembered too, so you land on the exact note you left, not only the one you originally clicked.</li>
         </ul>
     ]]></change-notes>
 

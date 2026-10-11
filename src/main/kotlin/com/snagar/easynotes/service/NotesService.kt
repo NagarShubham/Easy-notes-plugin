@@ -1,12 +1,11 @@
 package com.snagar.easynotes.service
 
 import com.snagar.easynotes.model.Note
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
-import com.intellij.util.xmlb.XmlSerializerUtil
+import com.intellij.openapi.components.service
 import com.intellij.util.xmlb.annotations.XCollection
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -59,7 +58,7 @@ class NotesService : PersistentStateComponent<NotesService.State> {
     override fun getState(): State = state
 
     override fun loadState(loaded: State) {
-        XmlSerializerUtil.copyBean(loaded, state)
+        state = loaded
     }
     // endregion
 
@@ -174,7 +173,6 @@ class NotesService : PersistentStateComponent<NotesService.State> {
 
     companion object {
         @JvmStatic
-        fun getInstance(): NotesService =
-            ApplicationManager.getApplication().getService(NotesService::class.java)
+        fun getInstance(): NotesService = service()
     }
 }
