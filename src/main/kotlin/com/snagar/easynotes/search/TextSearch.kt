@@ -36,8 +36,38 @@ object TextSearch {
         return result
     }
 
-    /** Number of non-overlapping, case-insensitive occurrences of [query] in [text]. */
-    fun countMatches(text: String, query: String): Int = findMatches(text, query).size
+    /**
+     * Number of non-overlapping, case-insensitive occurrences of [query] in [text].
+     * Counts in place so ranking does not allocate a match list per note.
+     */
+    fun countMatches(text: String, query: String): Int {
+        val q = query.trim()
+        if (q.isEmpty() || text.isEmpty()) return 0
+        var count = 0
+        var from = 0
+        while (from <= text.length) {
+            val idx = text.indexOf(q, from, ignoreCase = true)
+            if (idx < 0) break
+            count++
+            from = idx + q.length
+        }
+        return count
+    }
+
+    /** Case-sensitive count that stops at [cap]. [text] and [query] are already normalized. */
+    private fun countCapped(text: String, query: String, cap: Int): Int {
+        if (query.isEmpty() || text.isEmpty() || cap <= 0) return 0
+        var count = 0
+        var from = 0
+        val step = query.length
+        while (count < cap && from <= text.length) {
+            val idx = text.indexOf(query, from)
+            if (idx < 0) break
+            count++
+            from = idx + step
+        }
+        return count
+    }
 
     /**
      * Relevance score for a note given already-lowercased [titleLower] /
@@ -60,10 +90,12 @@ object TextSearch {
             else -> score += 400                                    // title contains
         }
 
-        val bodyHits = countMatches(contentLower, queryLower)
+        // Strings are already lowercased. Stop at 20 hits: the frequency bonus
+        // is capped there, so further matches cannot change the score.
+        val bodyHits = countCapped(contentLower, queryLower, 20)
         if (bodyHits > 0) {
             score += 100                          // body contains at all
-            score += bodyHits.coerceAtMost(20)    // frequency bonus, capped
+            score += bodyHits                     // frequency bonus, already capped
         }
         return score
     }

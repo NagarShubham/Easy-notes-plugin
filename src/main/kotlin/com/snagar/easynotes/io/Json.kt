@@ -33,9 +33,15 @@ internal object Json {
      * Parses a JSON document into a tree of [Map]/[List]/[String]/[Long]/
      * [Double]/[Boolean]/`null`. Throws [JsonException] on malformed input.
      */
+    const val MAX_INPUT_CHARS: Int = 8 * 1024 * 1024
+    const val MAX_DEPTH: Int = 32
+
     fun parse(text: String): Any? {
+        if (text.length > MAX_INPUT_CHARS) {
+            throw JsonException("JSON exceeds the ${MAX_INPUT_CHARS}-character import limit")
+        }
         val parser = Parser(text)
-        val value = parser.parseValue()
+        val value = parser.parseValue(0)
         parser.skipWhitespace()
         if (!parser.atEnd()) throw JsonException("Trailing content at index ${parser.index}")
         return value
@@ -51,12 +57,13 @@ internal object Json {
             while (index < s.length && s[index].isWhitespace()) index++
         }
 
-        fun parseValue(): Any? {
+        fun parseValue(depth: Int): Any? {
+            if (depth > MAX_DEPTH) throw JsonException("JSON nesting exceeds $MAX_DEPTH levels")
             skipWhitespace()
             if (atEnd()) throw JsonException("Unexpected end of input")
             return when (val c = s[index]) {
-                '{' -> parseObject()
-                '[' -> parseArray()
+                '{' -> parseObject(depth)
+                '[' -> parseArray(depth)
                 '"' -> parseString()
                 't', 'f' -> parseBoolean()
                 'n' -> parseNull()
@@ -65,7 +72,7 @@ internal object Json {
             }
         }
 
-        private fun parseObject(): Map<String, Any?> {
+        private fun parseObject(depth: Int): Map<String, Any?> {
             val map = LinkedHashMap<String, Any?>()
             index++ // consume '{'
             skipWhitespace()
@@ -77,7 +84,7 @@ internal object Json {
                 skipWhitespace()
                 if (peek() != ':') throw JsonException("Expected ':' at index $index")
                 index++
-                map[key] = parseValue()
+                map[key] = parseValue(depth + 1)
                 skipWhitespace()
                 when (peek()) {
                     ',' -> index++
@@ -87,13 +94,13 @@ internal object Json {
             }
         }
 
-        private fun parseArray(): List<Any?> {
+        private fun parseArray(depth: Int): List<Any?> {
             val list = ArrayList<Any?>()
             index++ // consume '['
             skipWhitespace()
             if (peek() == ']') { index++; return list }
             while (true) {
-                list.add(parseValue())
+                list.add(parseValue(depth + 1))
                 skipWhitespace()
                 when (peek()) {
                     ',' -> index++

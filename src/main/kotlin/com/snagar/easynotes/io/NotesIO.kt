@@ -31,8 +31,17 @@ internal data class ImportSummary(
  */
 internal object NotesIO {
 
+    const val MAX_IMPORT_BYTES: Long = 8L * 1024 * 1024
+
     private val isoFormatter: DateTimeFormatter =
         DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss").withZone(ZoneId.systemDefault())
+
+    private val UNSAFE_FILENAME_CHARS = Regex("[^A-Za-z0-9-_ ]")
+    private val RESERVED_FILENAMES = setOf(
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    )
 
     // region JSON
     /** Serializes notes as a backup document: {"version":1,"notes":[...]}. */
@@ -65,15 +74,11 @@ internal object NotesIO {
 
     /**
      * Parses notes from JSON. Accepts a single note object, a bare array of
-     * notes, or a backup object with a "notes" array. Malformed input yields an
-     * empty list rather than throwing.
+     * notes, or a backup object with a "notes" array. Throws [JsonException]
+     * when the document is malformed or exceeds size/depth limits.
      */
     fun parseJson(text: String): List<Note> {
-        val root = try {
-            Json.parse(text)
-        } catch (_: JsonException) {
-            return emptyList()
-        }
+        val root = Json.parse(text)
         val objects: List<Any?> = when {
             root is List<*> -> root
             root is Map<*, *> && root["notes"] is List<*> -> root["notes"] as List<*>
@@ -116,7 +121,7 @@ internal object NotesIO {
         append("pinned: ").append(note.pinned).append('\n')
         append("favorite: ").append(note.favorite).append('\n')
         append("---\n\n")
-        append("# ").append(note.displayTitle()).append("\n\n")
+        append("# ").append(note.title).append("\n\n")
         append(note.content)
         if (!note.content.endsWith("\n")) append('\n')
     }
@@ -182,32 +187,34 @@ internal object NotesIO {
         policy: ImportConflictPolicy
     ): ImportSummary {
         val summary = ImportSummary()
-        for (note in incoming) {
-            val existing = service.findNote(note.id)
-            if (existing == null) {
-                service.addNote(note)
-                summary.added++
-                continue
-            }
-            if (isSameContent(existing, note)) {
-                summary.skipped++
-                continue
-            }
-            when (policy) {
-                ImportConflictPolicy.SKIP -> summary.skipped++
-                ImportConflictPolicy.OVERWRITE -> {
-                    existing.title = note.title
-                    existing.content = note.content
-                    existing.colorRgb = note.colorRgb
-                    existing.pinned = note.pinned
-                    existing.favorite = note.favorite
-                    service.touchNote(existing)
-                    summary.overwritten++
-                }
-                ImportConflictPolicy.KEEP_BOTH -> {
-                    note.id = UUID.randomUUID().toString()
+        service.batch {
+            for (note in incoming) {
+                val existing = service.findNote(note.id)
+                if (existing == null) {
                     service.addNote(note)
-                    summary.renamed++
+                    summary.added++
+                    continue
+                }
+                if (isSameContent(existing, note)) {
+                    summary.skipped++
+                    continue
+                }
+                when (policy) {
+                    ImportConflictPolicy.SKIP -> summary.skipped++
+                    ImportConflictPolicy.OVERWRITE -> {
+                        existing.title = note.title
+                        existing.content = note.content
+                        existing.colorRgb = note.colorRgb
+                        existing.pinned = note.pinned
+                        existing.favorite = note.favorite
+                        service.touchNote(existing)
+                        summary.overwritten++
+                    }
+                    ImportConflictPolicy.KEEP_BOTH -> {
+                        note.id = UUID.randomUUID().toString()
+                        service.addNote(note)
+                        summary.renamed++
+                    }
                 }
             }
         }
@@ -254,6 +261,12 @@ internal object NotesIO {
         if (note.createdAt <= 0L) note.createdAt = System.currentTimeMillis()
         if (note.modifiedAt <= 0L) note.modifiedAt = note.createdAt
         return note
+    }
+
+    fun sanitizeFilename(name: String): String {
+        var cleaned = name.replace(UNSAFE_FILENAME_CHARS, "_").trim().ifEmpty { "note" }.take(80)
+        if (cleaned.uppercase() in RESERVED_FILENAMES) cleaned = "_$cleaned"
+        return cleaned
     }
     // endregion
 }

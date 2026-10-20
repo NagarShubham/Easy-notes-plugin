@@ -1,5 +1,6 @@
 package com.snagar.easynotes.search
 
+import com.snagar.easynotes.markdown.NoteMarkdown
 import com.snagar.easynotes.model.Note
 
 /**
@@ -18,21 +19,51 @@ import com.snagar.easynotes.model.Note
  */
 object NoteSearchIndex {
 
-    private class Entry(val stamp: Long, val titleLower: String, val contentLower: String)
+    private class Entry(
+        val stamp: Long,
+        val titleLower: String,
+        val plain: String,
+        val contentLower: String,
+    )
 
     private val cache = HashMap<String, Entry>()
 
     private fun entryFor(note: Note): Entry {
         val cached = cache[note.id]
         if (cached != null && cached.stamp == note.modifiedAt) return cached
+        val plain = NoteMarkdown.plainText(note.content)
         val fresh = Entry(
             stamp = note.modifiedAt,
             titleLower = note.displayTitle().lowercase(),
-            contentLower = note.content.lowercase(),
+            plain = plain,
+            contentLower = plain.lowercase(),
         )
         cache[note.id] = fresh
         return fresh
     }
+
+    /**
+     * Drops cached projections for notes that are no longer in [live].
+     * Called when the list is recomputed so deleted notes do not keep a
+     * lowercased copy of their body in memory.
+     */
+    fun retain(live: List<Note>) {
+        val ids = HashSet<String>(live.size * 2)
+        for (note in live) ids.add(note.id)
+        cache.keys.retainAll(ids)
+    }
+
+    internal fun isCached(id: String): Boolean = cache.containsKey(id)
+
+    internal fun clear() {
+        cache.clear()
+    }
+
+    /** Lowercased display title, cached with the rest of the search projection. */
+    fun titleLower(note: Note): String = entryFor(note).titleLower
+
+    /** Markdown stripped to plain text, cached so the list renderer does not reparse. */
+    fun plain(note: Note): String = entryFor(note).plain
 
     /** True when [queryLower] (already lowercased/trimmed) appears in the title or body. */
     fun matches(note: Note, queryLower: String): Boolean {

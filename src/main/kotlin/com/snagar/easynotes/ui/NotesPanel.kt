@@ -1,6 +1,7 @@
 package com.snagar.easynotes.ui
 
 import com.snagar.easynotes.io.ImportConflictPolicy
+import com.snagar.easynotes.io.JsonException
 import com.snagar.easynotes.io.NotesIO
 import com.snagar.easynotes.model.Note
 import com.snagar.easynotes.model.SortKey
@@ -17,22 +18,22 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.DataKey
 import com.intellij.openapi.actionSystem.DataSink
+import com.intellij.openapi.actionSystem.PlatformDataKeys
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.UiDataProvider
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.Messages
-import com.intellij.openapi.ui.ValidationInfo
 import com.intellij.openapi.ui.popup.JBPopup
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.util.Disposer
-import com.intellij.ui.CheckBoxList
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.JBColor
 import com.intellij.ui.SearchTextField
+import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.awt.RelativePoint
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBList
@@ -45,15 +46,16 @@ import java.awt.CardLayout
 import java.awt.Color
 import java.awt.Dimension
 import java.awt.Font
-import java.awt.GraphicsEnvironment
 import java.awt.GridLayout
 import java.awt.Toolkit
+import java.awt.event.HierarchyEvent
 import java.awt.event.InputEvent
 import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.io.File
 import java.io.IOException
+import java.text.Collator
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -83,6 +85,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
     private val service = NotesService.getInstance()
     private val dateFormat = SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault())
+    private val titleCollator: Collator = Collator.getInstance()
 
     private val cards = JPanel(CardLayout())
     private var view = View.LIST
@@ -96,9 +99,10 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     // Detail view
     private val indexLabel = JBLabel()
     private val titleField = JBTextField()
-    private val contentArea = RuledTextArea()
+    private val contentArea = RuledTextPane()
     private val paperPanel = JPanel(BorderLayout())
     private val contentScroll = JBScrollPane(contentArea)
+    private lateinit var formatToolbar: ActionToolbar
 
     /** In-editor find bar for searching within the currently open note. */
     private lateinit var inNoteSearch: InNoteSearchBar
@@ -115,6 +119,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     private var searchQuery: String = ""
     private var favoritesOnly: Boolean = false
     private var sortKey: SortKey = SortKey.CREATED
+    private var notesStale = false
 
     private val disposable = Disposer.newDisposable("NotesPanel")
     private val saveAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, disposable)
@@ -131,6 +136,14 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         add(cards, BorderLayout.CENTER)
 
         wireListeners()
+        addHierarchyListener { e ->
+            if (e.changeFlags and HierarchyEvent.SHOWING_CHANGED.toLong() != 0L &&
+                isShowing && notesStale
+            ) {
+                notesStale = false
+                onNotesChanged()
+            }
+        }
         service.addChangeListener(serviceListener)
 
         reloadList()
@@ -196,21 +209,32 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         )
         inNoteSearch.isVisible = false
 
+        formatToolbar = createToolbar("Notes.FormatToolbar")
+        formatToolbar.component.isOpaque = false
+        formatToolbar.component.isRequestFocusEnabled = false
+        formatToolbar.component.isFocusable = false
+        formatToolbar.component.alignmentX = LEFT_ALIGNMENT
+        formatToolbar.component.border = JBUI.Borders.empty(2, 6, 4, 6)
+        formatToolbar.component.maximumSize =
+            Dimension(Int.MAX_VALUE, formatToolbar.component.preferredSize.height + 8)
+
         val northStack = JPanel()
         northStack.layout = BoxLayout(northStack, BoxLayout.Y_AXIS)
         north.alignmentX = LEFT_ALIGNMENT
         inNoteSearch.alignmentX = LEFT_ALIGNMENT
         northStack.add(north)
+        northStack.add(formatToolbar.component)
         northStack.add(inNoteSearch)
         card.add(northStack, BorderLayout.NORTH)
 
         defaultTitleFont = titleField.font.deriveFont(Font.BOLD, titleField.font.size2D + 3f)
-        titleField.border = JBUI.Borders.empty(8, 14, 4, 10)
-        titleField.emptyText.text = Note.DEFAULT_TITLE
+        titleField.border = JBUI.Borders.empty(10, 18, 6, 12)
+        titleField.isOpaque = true
+        styleTitlePlaceholder()
 
         defaultContentFont = contentArea.font.deriveFont(contentArea.font.size2D + 1f)
-        contentArea.border = JBUI.Borders.empty(6, 18, 8, 10)
-        contentArea.emptyText.text = "Enter your notes here..."
+        contentArea.border = JBUI.Borders.empty(4, 20, 12, 12)
+        contentArea.emptyText = "Enter your notes here..."
 
         applyFont()
 
@@ -226,11 +250,21 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
     // region wiring
     private fun wireListeners() {
-        val autoSave = object : DocumentAdapter() {
-            override fun textChanged(e: DocumentEvent) = scheduleSave()
-        }
-        titleField.document.addDocumentListener(autoSave)
-        contentArea.document.addDocumentListener(autoSave)
+        titleField.document.addDocumentListener(object : DocumentAdapter() {
+            override fun textChanged(e: DocumentEvent) {
+                if (loading) return
+                titleDirty = true
+                scheduleSave()
+            }
+        })
+        contentArea.document.addDocumentListener(object : DocumentAdapter() {
+            override fun textChanged(e: DocumentEvent) {
+                if (loading) return
+                contentDirty = true
+                scheduleSave()
+            }
+        })
+        contentArea.addCaretListener { scheduleFormatUpdate() }
 
         listSearch.addDocumentListener(object : DocumentAdapter() {
             override fun textChanged(e: DocumentEvent) {
@@ -291,6 +325,20 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         val menuMask = Toolkit.getDefaultToolkit().menuShortcutKeyMaskEx
         registerPanelShortcut(KeyStroke.getKeyStroke(KeyEvent.VK_N, menuMask)) { createNote() }
         registerPanelShortcut(KeyStroke.getKeyStroke(KeyEvent.VK_F, menuMask)) { focusSearch() }
+        registerPanelShortcut(KeyStroke.getKeyStroke(KeyEvent.VK_B, menuMask)) {
+            if (view == View.DETAIL) toggleInline(RuledTextPane.InlineKind.BOLD)
+        }
+        registerPanelShortcut(KeyStroke.getKeyStroke(KeyEvent.VK_I, menuMask)) {
+            if (view == View.DETAIL) toggleInline(RuledTextPane.InlineKind.ITALIC)
+        }
+        registerPanelShortcut(KeyStroke.getKeyStroke(KeyEvent.VK_U, menuMask)) {
+            if (view == View.DETAIL) toggleInline(RuledTextPane.InlineKind.UNDERLINE)
+        }
+        registerPanelShortcut(
+            KeyStroke.getKeyStroke(KeyEvent.VK_X, menuMask or InputEvent.SHIFT_DOWN_MASK)
+        ) {
+            if (view == View.DETAIL) toggleInline(RuledTextPane.InlineKind.STRIKE)
+        }
         registerPanelShortcut(
             KeyStroke.getKeyStroke(KeyEvent.VK_UP, InputEvent.ALT_DOWN_MASK)
         ) { if (view == View.DETAIL) selectPrevious() }
@@ -311,6 +359,20 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         registerKeyboardAction({ run() }, keyStroke, JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
     }
 
+    private var titleDirty = false
+    private var contentDirty = false
+    private var formatUpdateQueued = false
+
+    /** One toolbar refresh per event-queue turn, not one per caret pixel. */
+    private fun scheduleFormatUpdate() {
+        if (formatUpdateQueued || !::formatToolbar.isInitialized) return
+        formatUpdateQueued = true
+        SwingUtilities.invokeLater {
+            formatUpdateQueued = false
+            refreshFormatToolbar()
+        }
+    }
+
     private fun scheduleSave() {
         if (loading) return
         saveAlarm.cancelAllRequests()
@@ -325,16 +387,38 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     private fun saveCurrent() {
         val note = currentNote() ?: return
         var changed = false
-        if (note.title != titleField.text) { note.title = titleField.text; changed = true }
-        if (note.content != contentArea.text) { note.content = contentArea.text; changed = true }
+        if (titleDirty) {
+            titleDirty = false
+            if (note.title != titleField.text) {
+                note.title = titleField.text
+                changed = true
+            }
+        }
+        if (contentDirty) {
+            contentDirty = false
+            val markdown = contentArea.toMarkdown()
+            if (note.content != markdown) {
+                note.content = markdown
+                changed = true
+            }
+        }
         if (changed) service.touchNote(note)
     }
 
     private fun currentNote(): Note? = currentId?.let { service.findNote(it) }
 
     private fun onNotesChanged() {
-        // Keep the font in sync when it is changed here or in another open panel.
-        applyFont()
+        if (!isShowing) {
+            notesStale = true
+            return
+        }
+        // Re-apply the global font only when it actually changed. Doing it on
+        // every autosave was wiping character styles (bold/italic/etc.).
+        val family = service.getFontFamily() ?: defaultContentFont.family
+        val size = service.getFontSize() ?: defaultContentFont.size
+        if (contentArea.font.family != family || contentArea.font.size != size) {
+            applyFont()
+        }
         if (view == View.LIST) {
             reloadList()
         } else {
@@ -353,13 +437,24 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
     // region ordering
     private fun computeOrdered(): List<Note> {
-        var notes = service.getAllNotes()
+        val all = service.getAllNotes()
+        NoteSearchIndex.retain(all)
+        var notes = all
         if (favoritesOnly) notes = notes.filter { it.favorite }
         val q = searchQuery.trim().lowercase()
-        if (q.isNotEmpty()) {
-            // Filter via the cached lowercase index so we don't re-lowercase every
-            // note's full body on each keystroke (see NoteSearchIndex).
-            notes = notes.filter { NoteSearchIndex.matches(it, q) }
+        // Score once per note. A non-empty query with score 0 is not a match, so
+        // the map is also the filter. Comparator lookups stay O(1).
+        val scores = if (q.isEmpty()) null else HashMap<String, Int>(notes.size)
+        if (scores != null) {
+            val matched = ArrayList<Note>(notes.size)
+            for (note in notes) {
+                val s = NoteSearchIndex.score(note, q)
+                if (s > 0) {
+                    scores[note.id] = s
+                    matched.add(note)
+                }
+            }
+            notes = matched
         }
         // A single explicit Comparator (instead of a compareBy/thenBy chain) so
         // the compiler emits one lambda class rather than several synthetic
@@ -367,18 +462,17 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         //  1. pinned notes first;
         //  2. when searching, higher relevance score, then most recently modified;
         //  3. the chosen base sort (title asc, created asc, or modified desc).
-        val searching = q.isNotEmpty()
         val comparator = Comparator<Note> { a, b ->
             var cmp = b.pinned.compareTo(a.pinned) // true (pinned) before false
             if (cmp != 0) return@Comparator cmp
-            if (searching) {
-                cmp = NoteSearchIndex.score(b, q).compareTo(NoteSearchIndex.score(a, q))
+            if (scores != null) {
+                cmp = (scores[b.id] ?: 0).compareTo(scores[a.id] ?: 0)
                 if (cmp != 0) return@Comparator cmp
                 cmp = b.modifiedAt.compareTo(a.modifiedAt)
                 if (cmp != 0) return@Comparator cmp
             }
             when (sortKey) {
-                SortKey.TITLE -> a.displayTitle().lowercase().compareTo(b.displayTitle().lowercase())
+                SortKey.TITLE -> titleCollator.compare(a.displayTitle(), b.displayTitle())
                 // FIFO: oldest created first, newest appended at the bottom.
                 SortKey.CREATED -> a.createdAt.compareTo(b.createdAt)
                 SortKey.MODIFIED -> b.modifiedAt.compareTo(a.modifiedAt)
@@ -393,9 +487,11 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         ordered = computeOrdered()
         // Let the renderer highlight matches / show snippets for the active query.
         listRenderer.query = searchQuery
+        listRenderer.retain(ordered.map { it.id }.toSet())
         val selectedIds = notesList.selectedValuesList.map { it.id }.toSet()
+        // clear() + addAll() is two list events. Per-row addElement repaints the list N times.
         listModel.clear()
-        ordered.forEach { listModel.addElement(it) }
+        if (ordered.isNotEmpty()) listModel.addAll(ordered)
         if (selectedIds.isNotEmpty()) {
             val indices = ordered.indices.filter { ordered[it].id in selectedIds }
             if (indices.isNotEmpty()) notesList.selectedIndices = indices.toIntArray()
@@ -550,12 +646,14 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
     private fun loadNote(note: Note) {
         loading = true
+        titleDirty = false
+        contentDirty = false
         try {
             currentId = note.id
             titleField.text = note.title
-            contentArea.text = note.content
-            contentArea.caretPosition = 0
             applyPaperColor(note.colorRgb)
+            contentArea.setMarkdown(note.content, contentArea.defaultBase())
+            contentArea.applyInk()
             updateHeader()
             // Remember exactly which note is on screen so it reopens on the next
             // IDE launch. This lives here (not in openDetail) so it also tracks
@@ -580,17 +678,29 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
     }
 
     private fun applyPaperColor(rgb: Int) {
-        val paper = Color(rgb)
+        val paper = PadColors.paper(rgb)
+        val ink = PadColors.inkOn(paper)
         contentArea.paperColor = paper
-        contentArea.foreground = INK
-        contentArea.caretColor = INK
+        contentArea.applyInk()
         contentScroll.viewport.background = paper
         contentScroll.background = paper
         titleField.background = paper
-        titleField.foreground = INK
-        titleField.caretColor = INK
+        titleField.foreground = ink
+        titleField.caretColor = ink
+        titleField.disabledTextColor = ink
+        titleField.selectionColor = PadColors.selectionOn(paper)
+        titleField.selectedTextColor = ink
+        styleTitlePlaceholder()
         paperPanel.background = paper
         paperPanel.repaint()
+    }
+
+    private fun styleTitlePlaceholder() {
+        titleField.emptyText.clear()
+        titleField.emptyText.appendText(
+            Note.DEFAULT_TITLE,
+            SimpleTextAttributes(SimpleTextAttributes.STYLE_PLAIN, PadColors.mutedInk),
+        )
     }
 
     private fun moveBy(delta: Int) {
@@ -671,6 +781,85 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
     fun canDelete(): Boolean =
         if (view == View.LIST) !service.isEmpty() else currentNote() != null
+
+    private fun refreshFormatToolbar() {
+        if (::formatToolbar.isInitialized) formatToolbar.updateActionsAsync()
+    }
+
+    fun toggleInline(kind: RuledTextPane.InlineKind, on: Boolean? = null) {
+        if (view != View.DETAIL) return
+        contentArea.toggleInline(kind, on)
+        refreshFormatToolbar()
+        scheduleSave()
+        contentArea.requestFocusInWindow()
+    }
+
+    fun selectionHas(kind: RuledTextPane.InlineKind): Boolean =
+        view == View.DETAIL && contentArea.selectionHas(kind)
+
+    fun toggleBulletList() {
+        if (view != View.DETAIL) return
+        contentArea.toggleBulletList()
+        refreshFormatToolbar()
+        scheduleSave()
+    }
+
+    fun setBulletList(on: Boolean) {
+        if (view != View.DETAIL) return
+        contentArea.setBulletList(on)
+        refreshFormatToolbar()
+        scheduleSave()
+    }
+
+    fun toggleNumberedList() {
+        if (view != View.DETAIL) return
+        contentArea.toggleNumberedList()
+        refreshFormatToolbar()
+        scheduleSave()
+    }
+
+    fun setNumberedList(on: Boolean) {
+        if (view != View.DETAIL) return
+        contentArea.setNumberedList(on)
+        refreshFormatToolbar()
+        scheduleSave()
+    }
+
+    fun selectionInBulletList(): Boolean = view == View.DETAIL && contentArea.selectionInBulletList()
+
+    fun selectionInNumberedList(): Boolean = view == View.DETAIL && contentArea.selectionInNumberedList()
+
+    fun toggleQuote() {
+        if (view != View.DETAIL) return
+        contentArea.toggleQuote()
+        refreshFormatToolbar()
+        scheduleSave()
+    }
+
+    fun setQuote(on: Boolean) {
+        if (view != View.DETAIL) return
+        contentArea.setQuote(on)
+        refreshFormatToolbar()
+        scheduleSave()
+    }
+
+    fun toggleCodeBlock() {
+        if (view != View.DETAIL) return
+        contentArea.toggleCodeBlock()
+        refreshFormatToolbar()
+        scheduleSave()
+    }
+
+    fun setCodeBlock(on: Boolean) {
+        if (view != View.DETAIL) return
+        contentArea.setCodeBlock(on)
+        refreshFormatToolbar()
+        scheduleSave()
+    }
+
+    fun selectionInQuote(): Boolean = view == View.DETAIL && contentArea.selectionInQuote()
+
+    fun selectionInCodeBlock(): Boolean = view == View.DETAIL && contentArea.selectionInCodeBlock()
     // endregion
 
     // region "more" menu
@@ -782,12 +971,12 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         val size = service.getFontSize()
         if (family == null && size == null) {
             titleField.font = defaultTitleFont
-            contentArea.font = defaultContentFont
+            contentArea.applyBaseFont(defaultContentFont.family, defaultContentFont.size)
         } else {
             val bodySize = size ?: defaultContentFont.size
             val bodyFamily = family ?: defaultContentFont.family
             val titleFamily = family ?: defaultTitleFont.family
-            contentArea.font = Font(bodyFamily, Font.PLAIN, bodySize)
+            contentArea.applyBaseFont(bodyFamily, bodySize)
             titleField.font = Font(titleFamily, Font.BOLD, bodySize + 2)
         }
         contentArea.revalidate()
@@ -810,6 +999,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
     // region import / export
     private fun importNotes() {
+        flushPendingSave()
         val descriptor =
             FileChooserDescriptorFactory.createMultipleFilesNoJarsDescriptor()
                 .withTitle("Import Notes")
@@ -818,20 +1008,48 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         val files = FileChooser.chooseFiles(descriptor, project, null)
         if (files.isEmpty()) return
 
-        val incoming = ArrayList<Note>()
-        for (vf in files) {
-            val file = File(vf.path)
-            val text = runCatching { file.readText() }.getOrNull() ?: continue
-            when (vf.extension?.lowercase()) {
-                "json" -> incoming.addAll(runCatching { NotesIO.parseJson(text) }.getOrDefault(emptyList()))
-                "md", "markdown" -> runCatching {
-                    NotesIO.parseMarkdown(text, file.nameWithoutExtension)
-                }.getOrNull()?.let { incoming.add(it) }
+        val paths = files.map { File(it.path) to (it.extension ?: "") }
+        ApplicationManager.getApplication().executeOnPooledThread {
+            val incoming = ArrayList<Note>()
+            val errors = ArrayList<String>()
+            for ((file, ext) in paths) {
+                if (file.length() > NotesIO.MAX_IMPORT_BYTES) {
+                    errors += "${file.name}: larger than ${NotesIO.MAX_IMPORT_BYTES / (1024 * 1024)} MB"
+                    continue
+                }
+                val text = try {
+                    file.readText()
+                } catch (e: Exception) {
+                    errors += "${file.name}: ${e.message ?: "could not read"}"
+                    continue
+                }
+                when (ext.lowercase()) {
+                    "json" -> try {
+                        incoming.addAll(NotesIO.parseJson(text))
+                    } catch (e: JsonException) {
+                        errors += "${file.name}: ${e.message}"
+                    }
+                    "md", "markdown" -> try {
+                        incoming.add(NotesIO.parseMarkdown(text, file.nameWithoutExtension))
+                    } catch (e: Exception) {
+                        errors += "${file.name}: ${e.message ?: "invalid markdown"}"
+                    }
+                }
+            }
+            SwingUtilities.invokeLater {
+                finishImport(incoming, errors)
             }
         }
+    }
 
+    private fun finishImport(incoming: List<Note>, errors: List<String>) {
         if (incoming.isEmpty()) {
-            Messages.showWarningDialog(project, "No valid notes were found in the selected files.", "Import Notes")
+            val detail = if (errors.isEmpty()) {
+                "No valid notes were found in the selected files."
+            } else {
+                "No valid notes were imported.\n\n" + errors.joinToString("\n")
+            }
+            Messages.showWarningDialog(project, detail, "Import Notes")
             return
         }
 
@@ -845,6 +1063,7 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
                 0,
                 Messages.getQuestionIcon()
             )
+            if (choice < 0) return
             policy = when (choice) {
                 1 -> ImportConflictPolicy.OVERWRITE
                 2 -> ImportConflictPolicy.SKIP
@@ -854,16 +1073,18 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
         val summary = NotesIO.importNotes(service, incoming, policy)
         reloadList()
+        val extra = if (errors.isEmpty()) "" else "\n\nSkipped files:\n" + errors.joinToString("\n")
         Messages.showInfoMessage(
             project,
             "Imported ${summary.total} note(s):\n" +
                 "Added: ${summary.added}, Overwritten: ${summary.overwritten}, " +
-                "Kept both: ${summary.renamed}, Skipped: ${summary.skipped}",
+                "Kept both: ${summary.renamed}, Skipped: ${summary.skipped}" + extra,
             "Import Complete"
         )
     }
 
     private fun exportNotes() {
+        flushPendingSave()
         val all = service.getAllNotes()
         if (all.isEmpty()) {
             Messages.showInfoMessage(project, "There are no notes to export.", "Export Notes")
@@ -902,8 +1123,9 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
     private fun exportJson(notes: List<Note>) {
         val dir = chooseExportFolder() ?: return
-        val fileName = if (notes.size == 1) sanitize(notes[0].displayTitle()) + ".json" else "notes-backup.json"
+        val fileName = if (notes.size == 1) NotesIO.sanitizeFilename(notes[0].displayTitle()) + ".json" else "notes-backup.json"
         val target = File(dir, fileName)
+        if (!confirmOverwrite(target)) return
         try {
             target.writeText(NotesIO.toJsonBackup(notes))
             Messages.showInfoMessage(project, "Exported ${notes.size} note(s) to\n${target.path}", "Export Complete")
@@ -917,13 +1139,19 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         val used = HashSet<String>()
         try {
             for (note in notes) {
-                val name = sanitize(note.displayTitle())
-                var candidate = "$name.md"
-                var i = 1
-                while (!used.add(candidate)) {
-                    candidate = "$name-${i++}.md"
+                val name = NotesIO.sanitizeFilename(note.displayTitle())
+                var i = 0
+                var candidate: String
+                var target: File
+                while (true) {
+                    candidate = if (i == 0) "$name.md" else "$name-$i.md"
+                    i++
+                    target = File(dir, candidate)
+                    if (!used.add(candidate)) continue
+                    if (!target.exists()) break
+                    if (confirmOverwrite(target)) break
                 }
-                File(dir, candidate).writeText(NotesIO.noteToMarkdown(note))
+                target.writeText(NotesIO.noteToMarkdown(note))
             }
             Messages.showInfoMessage(project, "Exported ${notes.size} note(s) to\n${dir.path}", "Export Complete")
         } catch (e: IOException) {
@@ -938,12 +1166,26 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         return File(dir.path)
     }
 
-    private fun sanitize(name: String): String =
-        name.replace(UNSAFE_FILENAME_CHARS, "_").trim().ifEmpty { "note" }.take(80)
+    private fun confirmOverwrite(file: File): Boolean {
+        if (!file.exists()) return true
+        return Messages.showYesNoDialog(
+            project,
+            "“${file.name}” already exists. Overwrite it?",
+            "Export Notes",
+            "Overwrite",
+            "Cancel",
+            Messages.getQuestionIcon()
+        ) == Messages.YES
+    }
     // endregion
 
     override fun uiDataSnapshot(sink: DataSink) {
         sink[NOTES_PANEL_KEY] = this
+        if (view == View.DETAIL && !titleField.hasFocus()) {
+            sink[PlatformDataKeys.PASTE_PROVIDER] = contentArea
+            sink[PlatformDataKeys.COPY_PROVIDER] = contentArea
+            sink[PlatformDataKeys.CUT_PROVIDER] = contentArea
+        }
     }
 
     fun dispose() {
@@ -957,119 +1199,9 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
 
         fun from(e: AnActionEvent): NotesPanel? = e.getData(NOTES_PANEL_KEY)
 
-        private val INK = Color(0x2B2B2B)
-        private val UNSAFE_FILENAME_CHARS = Regex("[^A-Za-z0-9-_ ]")
         private val PREDEFINED_COLORS = intArrayOf(
             0xFFFDE0, 0xFFF6B8, 0xC8E6C9, 0xBBDEFB, 0xF8BBD0, 0xFFE0B2,
             0xE1BEE7, 0xB2DFDB, 0xFFCDD2, 0xD7CCC8, 0xE0E0E0, 0xFFFFFF
         )
     }
-}
-
-/**
- * A checkbox dialog for choosing which specific notes to delete from the list
- * screen. OK ("Delete") stays disabled until at least one note is checked.
- */
-private class DeleteNotesDialog(
-    project: Project?,
-    private val notes: List<Note>,
-    preselected: Set<String>
-) : DialogWrapper(project) {
-
-    private val checkBoxList = CheckBoxList<Note>()
-
-    init {
-        title = "Delete Notes"
-        setOKButtonText("Delete")
-        notes.forEach { checkBoxList.addItem(it, it.displayTitle(), it.id in preselected) }
-        init()
-    }
-
-    override fun createCenterPanel(): JComponent {
-        val panel = JPanel(BorderLayout())
-        val hint = JBLabel("Select the notes you want to delete:")
-        hint.border = JBUI.Borders.emptyBottom(6)
-        panel.add(hint, BorderLayout.NORTH)
-        val scroll = JBScrollPane(checkBoxList)
-        scroll.preferredSize = Dimension(360, 320)
-        panel.add(scroll, BorderLayout.CENTER)
-        return panel
-    }
-
-    fun selectedNotes(): List<Note> = notes.filter { checkBoxList.isItemSelected(it) }
-
-    override fun doValidate(): ValidationInfo? =
-        if (notes.none { checkBoxList.isItemSelected(it) }) {
-            ValidationInfo("Select at least one note to delete.")
-        } else {
-            null
-        }
-}
-
-/**
- * A dialog to pick the font family and size applied to every note. Shows a live
- * preview so the effect is visible before committing.
- */
-private class FontSettingsDialog(
-    project: Project?,
-    private val initialFamily: String,
-    private val initialSize: Int
-) : DialogWrapper(project) {
-
-    private val families: Array<String> =
-        GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames
-
-    private val familyCombo = JComboBox(families)
-    private val sizeCombo = JComboBox(arrayOf(8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 22, 24, 28, 32, 36))
-    private val preview = JBLabel()
-
-    init {
-        title = "Note Font"
-        familyCombo.selectedItem = initialFamily.takeIf { families.contains(it) } ?: families.firstOrNull()
-        sizeCombo.selectedItem = initialSize
-        sizeCombo.isEditable = true
-        familyCombo.addActionListener { updatePreview() }
-        sizeCombo.addActionListener { updatePreview() }
-        init()
-        updatePreview()
-    }
-
-    override fun createCenterPanel(): JComponent {
-        val panel = JPanel(BorderLayout(0, 10))
-        panel.preferredSize = Dimension(380, 200)
-
-        val controls = JPanel(GridLayout(2, 2, 8, 8))
-        controls.add(JBLabel("Font:"))
-        controls.add(familyCombo)
-        controls.add(JBLabel("Size:"))
-        controls.add(sizeCombo)
-        panel.add(controls, BorderLayout.NORTH)
-
-        preview.text = "The quick brown fox jumps over the lazy dog."
-        preview.border = BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(JBColor.border()),
-            JBUI.Borders.empty(10)
-        )
-        preview.verticalAlignment = JBLabel.CENTER
-        panel.add(preview, BorderLayout.CENTER)
-        return panel
-    }
-
-    private fun currentSize(): Int {
-        val raw = sizeCombo.selectedItem
-        val value = when (raw) {
-            is Int -> raw
-            else -> raw?.toString()?.trim()?.toIntOrNull() ?: initialSize
-        }
-        return value.coerceIn(6, 96)
-    }
-
-    private fun updatePreview() {
-        val family = familyCombo.selectedItem as? String ?: initialFamily
-        preview.font = Font(family, Font.PLAIN, currentSize())
-    }
-
-    fun selectedFamily(): String = familyCombo.selectedItem as? String ?: initialFamily
-
-    fun selectedSize(): Int = currentSize()
 }

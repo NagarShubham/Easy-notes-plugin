@@ -90,6 +90,12 @@ class JsonTest {
         assertThrows(JsonException::class.java) { Json.parse("nul") }
         assertThrows(JsonException::class.java) { Json.parse("true false") }
     }
+
+    @Test
+    fun `nesting beyond the depth limit throws`() {
+        val nested = "[".repeat(Json.MAX_DEPTH + 2) + "]".repeat(Json.MAX_DEPTH + 2)
+        assertThrows(JsonException::class.java) { Json.parse(nested) }
+    }
     // endregion
 
     // region escape

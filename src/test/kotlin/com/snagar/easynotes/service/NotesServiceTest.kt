@@ -3,6 +3,7 @@ package com.snagar.easynotes.service
 import com.snagar.easynotes.model.Note
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -188,6 +189,56 @@ class NotesServiceTest {
         assertEquals(1, restored.getAllNotes().size)
         assertEquals("Kept", restored.getAllNotes()[0].title)
         assertEquals("note-id", restored.getLastOpenedNoteId())
+    }
+
+    @Test
+    fun `getState is a detached snapshot`() {
+        val service = NotesService()
+        val note = service.createNote("Kept")
+        val snapshot = service.getState()
+        note.title = "Changed"
+        assertEquals("Kept", snapshot.notes[0].title)
+        snapshot.notes[0].title = "Snapshot"
+        assertEquals("Changed", service.findNote(note.id)?.title)
+    }
+
+    @Test
+    fun `addNote remints duplicate ids`() {
+        val service = NotesService()
+        val first = service.createNote("A")
+        val clone = first.copy().apply { title = "B" }
+        service.addNote(clone)
+        assertEquals(2, service.getAllNotes().size)
+        assertNotEquals(first.id, clone.id)
+        assertEquals("B", service.findNote(clone.id)?.title)
+    }
+
+    @Test
+    fun `loadState remints duplicate ids in the payload`() {
+        val loaded = NotesService.State()
+        val a = Note().apply { id = "dup"; title = "A" }
+        val b = Note().apply { id = "dup"; title = "B" }
+        loaded.notes.add(a)
+        loaded.notes.add(b)
+        val service = NotesService()
+        service.loadState(loaded)
+        val notes = service.getAllNotes()
+        assertEquals(2, notes.size)
+        assertNotEquals(notes[0].id, notes[1].id)
+    }
+
+    @Test
+    fun `batch fires a single change event`() {
+        val service = NotesService()
+        var events = 0
+        service.addChangeListener { events++ }
+        service.batch {
+            service.addNote(Note())
+            service.addNote(Note())
+            service.addNote(Note())
+        }
+        assertEquals(1, events)
+        assertEquals(3, service.getAllNotes().size)
     }
     // endregion
 }
