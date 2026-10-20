@@ -1,6 +1,7 @@
 package com.snagar.easynotes.ui
 
 import com.snagar.easynotes.model.Note
+import com.snagar.easynotes.search.NoteSearchIndex
 import com.snagar.easynotes.search.TextSearch
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
@@ -33,6 +34,20 @@ class NoteListCellRenderer : JPanel(BorderLayout()), ListCellRenderer<Note> {
      * instead of the timestamps. Set by [NotesPanel] before each list reload.
      */
     var query: String = ""
+        set(value) {
+            if (field == value) return
+            field = value
+            rowCache.clear()
+        }
+
+    fun retain(ids: Set<String>) {
+        rowCache.keys.retainAll(ids)
+    }
+
+    /** Painted HTML for a note, keyed by id and modifiedAt so scroll does not rebuild it. */
+    private val rowCache = HashMap<String, CachedRow>()
+
+    private class CachedRow(val stamp: Long, val title: String, val subtitle: String)
 
     private val dateFormat = SimpleDateFormat("MMM d, yyyy HH:mm", Locale.getDefault())
 
@@ -102,12 +117,22 @@ class NoteListCellRenderer : JPanel(BorderLayout()), ListCellRenderer<Note> {
             titleLabel.text = value.displayTitle()
             subtitleLabel.text = datesText(value)
         } else {
-            titleLabel.text = "<html>" + TextSearch.highlightHtml(value.displayTitle(), q) + "</html>"
-            val snippet = TextSearch.snippet(value.content, q)
-            subtitleLabel.text = if (snippet != null) {
-                "<html>" + TextSearch.highlightHtml(snippet, q) + "</html>"
+            val key = value.id
+            val cached = rowCache[key]
+            if (cached != null && cached.stamp == value.modifiedAt) {
+                titleLabel.text = cached.title
+                subtitleLabel.text = cached.subtitle
             } else {
-                datesText(value)
+                val title = "<html>" + TextSearch.highlightHtml(value.displayTitle(), q) + "</html>"
+                val snippet = TextSearch.snippet(NoteSearchIndex.plain(value), q)
+                val subtitle = if (snippet != null) {
+                    "<html>" + TextSearch.highlightHtml(snippet, q) + "</html>"
+                } else {
+                    datesText(value)
+                }
+                rowCache[key] = CachedRow(value.modifiedAt, title, subtitle)
+                titleLabel.text = title
+                subtitleLabel.text = subtitle
             }
         }
 

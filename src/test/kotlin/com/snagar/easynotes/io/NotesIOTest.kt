@@ -151,9 +151,28 @@ class NotesIOTest {
     }
 
     @Test
-    fun `malformed json yields empty list instead of throwing`() {
-        assertTrue(NotesIO.parseJson("{ not valid json").isEmpty())
-        assertTrue(NotesIO.parseJson("").isEmpty())
+    fun `malformed json throws JsonException`() {
+        org.junit.jupiter.api.Assertions.assertThrows(JsonException::class.java) {
+            NotesIO.parseJson("{ not valid json")
+        }
+        org.junit.jupiter.api.Assertions.assertThrows(JsonException::class.java) {
+            NotesIO.parseJson("")
+        }
+    }
+
+    @Test
+    fun `blank markdown title round-trips as blank`() {
+        val note = Note().apply { title = ""; content = "body" }
+        val parsed = NotesIO.parseMarkdown(NotesIO.noteToMarkdown(note), "fallback")
+        assertEquals("", parsed.title)
+        assertEquals("body", parsed.content)
+    }
+
+    @Test
+    fun `sanitizeFilename strips reserved windows names`() {
+        assertEquals("hello_world", NotesIO.sanitizeFilename("hello/world"))
+        assertEquals("_CON", NotesIO.sanitizeFilename("CON"))
+        assertEquals("___", NotesIO.sanitizeFilename("***"))
     }
 
     @Test

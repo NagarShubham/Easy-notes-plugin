@@ -113,6 +113,9 @@ tasks.withType<Jar>().configureEach {
 
 kotlin {
     jvmToolchain(21)
+    compilerOptions {
+        extraWarnings.set(true)
+    }
 }
 
 java {

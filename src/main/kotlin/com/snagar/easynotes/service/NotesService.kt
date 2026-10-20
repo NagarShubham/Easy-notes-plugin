@@ -2,11 +2,13 @@ package com.snagar.easynotes.service
 
 import com.snagar.easynotes.model.Note
 import com.intellij.openapi.components.PersistentStateComponent
+import com.intellij.openapi.components.RoamingType
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.openapi.components.service
 import com.intellij.util.xmlb.annotations.XCollection
+import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -14,11 +16,12 @@ import java.util.concurrent.CopyOnWriteArrayList
  *
  * Notes are persisted to `NotesPlugin.xml` inside the IDE configuration
  * directory, so they are shared across every project and survive IDE restarts.
- * The IntelliJ Platform persists [getState] automatically (periodically and on
- * shutdown), which gives us "auto-save" for free once the in-memory model is
- * kept up to date.
+ * Roaming is disabled so Settings Sync does not upload note bodies.
  */
-@State(name = "NotesPluginStorage", storages = [Storage("NotesPlugin.xml")])
+@State(
+    name = "NotesPluginStorage",
+    storages = [Storage(value = "NotesPlugin.xml", roamingType = RoamingType.DISABLED)],
+)
 @Service(Service.Level.APP)
 class NotesService : PersistentStateComponent<NotesService.State> {
 
@@ -27,38 +30,91 @@ class NotesService : PersistentStateComponent<NotesService.State> {
         @get:XCollection(style = XCollection.Style.v2)
         var notes: MutableList<Note> = mutableListOf()
 
-        /**
-         * Id of the note the user most recently opened in the editor, so it can
-         * be reopened on the next IDE launch. Empty only on a fresh install (no
-         * note ever opened); in that case the list is shown by default. The id is
-         * kept even when the user navigates back to the list, so the last note is
-         * always restored unless it has since been deleted.
-         */
         var lastOpenedNoteId: String = ""
-
-        /**
-         * Font family used to render every note's title and body. Empty means
-         * "use the IDE default font"; otherwise it is a font family name such as
-         * "Monospaced" or "SansSerif". Applied globally across all notes.
-         */
         var fontFamily: String = ""
-
-        /**
-         * Base font size (points) for note bodies; titles are rendered slightly
-         * larger and bold. `0` means "use the IDE default size".
-         */
         var fontSize: Int = 0
     }
 
     private var state = State()
 
+    /** Id lookup rebuilt after the note list changes. Avoids a scan on every save and navigation. */
+    private var byId: HashMap<String, Note>? = null
+
     private val listeners = CopyOnWriteArrayList<NotesChangeListener>()
 
+    /** Nested [batch] calls suppress change events until the outermost batch ends. */
+    private var batchDepth = 0
+
+    private fun index(): HashMap<String, Note> {
+        val existing = byId
+        if (existing != null) return existing
+        val map = HashMap<String, Note>(state.notes.size * 2)
+        for (note in state.notes) map[note.id] = note
+        byId = map
+        return map
+    }
+
+    private fun copyState(source: State): State {
+        val copy = State()
+        copy.notes = source.notes.map { it.copy() }.toMutableList()
+        copy.lastOpenedNoteId = source.lastOpenedNoteId
+        copy.fontFamily = source.fontFamily
+        copy.fontSize = source.fontSize
+        dedupeIds(copy.notes)
+        return copy
+    }
+
+    private fun dedupeIds(notes: MutableList<Note>) {
+        val seen = HashSet<String>(notes.size * 2)
+        for (note in notes) {
+            if (note.id.isBlank() || !seen.add(note.id)) {
+                var id: String
+                do {
+                    id = UUID.randomUUID().toString()
+                } while (!seen.add(id))
+                note.id = id
+            }
+        }
+    }
+
+    private fun adoptUniqueId(note: Note) {
+        val map = index()
+        if (note.id.isBlank() || map.containsKey(note.id)) {
+            var id: String
+            do {
+                id = UUID.randomUUID().toString()
+            } while (map.containsKey(id))
+            note.id = id
+        }
+    }
+
+    private fun notifyIfNeeded() {
+        if (batchDepth == 0) fireChanged()
+    }
+
+    /**
+     * Runs [block] with a single change event at the end (used by import).
+     */
+    fun batch(block: () -> Unit) {
+        batchDepth++
+        try {
+            block()
+        } finally {
+            batchDepth--
+            if (batchDepth == 0) {
+                byId = null
+                fireChanged()
+            }
+        }
+    }
+
     // region PersistentStateComponent
-    override fun getState(): State = state
+    override fun getState(): State = copyState(state)
 
     override fun loadState(loaded: State) {
-        state = loaded
+        state = copyState(loaded)
+        byId = null
+        fireChanged()
     }
     // endregion
 
@@ -69,9 +125,9 @@ class NotesService : PersistentStateComponent<NotesService.State> {
     /** Cheap emptiness check that avoids copying the backing list. */
     fun isEmpty(): Boolean = state.notes.isEmpty()
 
-    fun findNote(id: String): Note? = state.notes.firstOrNull { it.id == id }
+    fun findNote(id: String): Note? = index()[id]
 
-    fun existsById(id: String): Boolean = state.notes.any { it.id == id }
+    fun existsById(id: String): Boolean = index().containsKey(id)
 
     /** Creates a new empty note and returns it. */
     fun createNote(title: String? = null): Note {
@@ -80,22 +136,27 @@ class NotesService : PersistentStateComponent<NotesService.State> {
         val now = System.currentTimeMillis()
         note.createdAt = now
         note.modifiedAt = now
+        adoptUniqueId(note)
         state.notes.add(note)
-        fireChanged()
+        byId?.put(note.id, note)
+        notifyIfNeeded()
         return note
     }
 
-    /** Adds an already-constructed note (used by import). */
+    /** Adds an already-constructed note (used by import). Duplicate ids are reminted. */
     fun addNote(note: Note) {
+        adoptUniqueId(note)
         state.notes.add(note)
-        fireChanged()
+        byId?.put(note.id, note)
+        notifyIfNeeded()
     }
 
     /** Adds several notes at once, firing a single change event (used by undo). */
     fun addNotes(notes: Collection<Note>) {
         if (notes.isEmpty()) return
-        state.notes.addAll(notes)
-        fireChanged()
+        batch {
+            for (note in notes) addNote(note)
+        }
     }
 
     /**
@@ -105,24 +166,22 @@ class NotesService : PersistentStateComponent<NotesService.State> {
      */
     fun touchNote(note: Note) {
         note.modifiedAt = System.currentTimeMillis()
-        fireChanged()
+        notifyIfNeeded()
     }
 
     fun deleteNotes(ids: Collection<String>) {
         val idSet = ids.toSet()
         if (state.notes.removeAll { it.id in idSet }) {
-            fireChanged()
+            val map = byId
+            if (map != null) {
+                for (id in idSet) map.remove(id)
+            }
+            notifyIfNeeded()
         }
     }
     // endregion
 
     // region Last opened note
-    /**
-     * The note the user most recently opened, or `null` on a fresh install where
-     * no note has been opened yet. Used to restore the editor on the next launch.
-     * Persisted with the rest of the state; setting it does not fire a change
-     * event.
-     */
     fun getLastOpenedNoteId(): String? = state.lastOpenedNoteId.ifBlank { null }
 
     fun setLastOpenedNoteId(id: String) {
@@ -131,23 +190,14 @@ class NotesService : PersistentStateComponent<NotesService.State> {
     // endregion
 
     // region Font settings
-    /**
-     * The font family applied to every note, or `null` to use the IDE default.
-     */
     fun getFontFamily(): String? = state.fontFamily.ifBlank { null }
 
-    /** The base body font size in points, or `null` to use the IDE default. */
     fun getFontSize(): Int? = state.fontSize.takeIf { it > 0 }
 
-    /**
-     * Updates the global note font. `family` of `null`/blank and `size` of `0`
-     * mean "use the IDE default". Notifies listeners so open panels restyle
-     * immediately.
-     */
     fun setFont(family: String?, size: Int) {
         state.fontFamily = family?.trim().orEmpty()
         state.fontSize = if (size > 0) size else 0
-        fireChanged()
+        notifyIfNeeded()
     }
     // endregion
 

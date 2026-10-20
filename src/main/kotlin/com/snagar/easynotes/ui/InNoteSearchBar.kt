@@ -315,7 +315,7 @@ class InNoteSearchBar(
         // the same light color is used for both JBColor variants.
         //  - all matches: a soft, clear yellow;
         //  - active match: a brighter amber that stands out while staying legible.
-        private val HL_ALL = JBColor(java.awt.Color(0xFFF176), java.awt.Color(0xFFF176))
-        private val HL_ACTIVE = JBColor(java.awt.Color(0xFFC64B), java.awt.Color(0xFFC64B))
+        private val HL_ALL = JBColor(PadColors.findAll, PadColors.findAll)
+        private val HL_ACTIVE = JBColor(PadColors.findActive, PadColors.findActive)
     }
 }

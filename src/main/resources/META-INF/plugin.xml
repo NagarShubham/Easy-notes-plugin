@@ -55,8 +55,9 @@
         third-party libraries, so it stays fast and out of your way.</p>
 
         <p>🔒 <b>Private by design</b> &mdash; every note is stored locally in your IDE's
-        configuration directory. Nothing is uploaded, tracked, or sent anywhere; your
-        notes never leave your machine unless you export them yourself.</p>
+        configuration directory and is excluded from Settings Sync. Nothing is uploaded,
+        tracked, or sent anywhere; your notes never leave your machine unless you
+        export them yourself.</p>
 
         <p>Works in all IntelliJ-based IDEs: IntelliJ IDEA, Android Studio, PyCharm,
         WebStorm, GoLand, PhpStorm, Rider, CLion, and more.</p>
@@ -131,6 +132,66 @@
                 text="More Options"
                 description="Pin, star, color, sort, import and export"
                 icon="AllIcons.Actions.More"/>
+
+        <action id="Notes.Format.Bold"
+                class="com.snagar.easynotes.actions.BoldFormatAction"
+                text="Bold"
+                description="Toggle bold on the current selection"
+                icon="/icons/format/bold.svg"/>
+        <action id="Notes.Format.Italic"
+                class="com.snagar.easynotes.actions.ItalicFormatAction"
+                text="Italic"
+                description="Toggle italic on the current selection"
+                icon="/icons/format/italic.svg"/>
+        <action id="Notes.Format.Underline"
+                class="com.snagar.easynotes.actions.UnderlineFormatAction"
+                text="Underline"
+                description="Toggle underline on the current selection"
+                icon="/icons/format/underline.svg"/>
+        <action id="Notes.Format.Strike"
+                class="com.snagar.easynotes.actions.StrikeFormatAction"
+                text="Strikethrough"
+                description="Toggle strikethrough on the current selection"
+                icon="/icons/format/strike.svg"/>
+        <action id="Notes.Format.NumberedList"
+                class="com.snagar.easynotes.actions.NumberedListFormatAction"
+                text="Numbered List"
+                description="Toggle a numbered list on the current paragraph"
+                icon="/icons/format/listNumber.svg"/>
+        <action id="Notes.Format.BulletList"
+                class="com.snagar.easynotes.actions.BulletListFormatAction"
+                text="Bullet List"
+                description="Toggle a bullet list on the current paragraph"
+                icon="/icons/format/listBullet.svg"/>
+        <action id="Notes.Format.Code"
+                class="com.snagar.easynotes.actions.CodeFormatAction"
+                text="Inline Code"
+                description="Toggle inline code on the current selection"
+                icon="/icons/format/code.svg"/>
+        <action id="Notes.Format.Quote"
+                class="com.snagar.easynotes.actions.QuoteFormatAction"
+                text="Quote"
+                description="Toggle a block quote on the current paragraph"
+                icon="/icons/format/quote.svg"/>
+        <action id="Notes.Format.CodeBlock"
+                class="com.snagar.easynotes.actions.CodeBlockFormatAction"
+                text="Code Block"
+                description="Toggle a fenced code block on the current paragraph"
+                icon="/icons/format/codeBlock.svg"/>
+
+        <group id="Notes.FormatToolbar">
+            <reference ref="Notes.Format.Bold"/>
+            <reference ref="Notes.Format.Italic"/>
+            <reference ref="Notes.Format.Underline"/>
+            <reference ref="Notes.Format.Strike"/>
+            <separator/>
+            <reference ref="Notes.Format.NumberedList"/>
+            <reference ref="Notes.Format.BulletList"/>
+            <reference ref="Notes.Format.Quote"/>
+            <separator/>
+            <reference ref="Notes.Format.Code"/>
+            <reference ref="Notes.Format.CodeBlock"/>
+        </group>
 
         <!-- Toolbar shown in the detail (editor) view. -->
         <group id="Notes.DetailToolbar">
