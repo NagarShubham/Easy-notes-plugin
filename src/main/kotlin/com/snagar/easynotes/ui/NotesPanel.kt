@@ -9,16 +9,9 @@ import com.snagar.easynotes.service.NotesService
 import com.intellij.notification.NotificationAction
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
-import com.intellij.openapi.actionSystem.ActionGroup
-import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.ActionPlaces
-import com.intellij.openapi.actionSystem.ActionToolbar
-import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.openapi.actionSystem.DataContext
-import com.intellij.openapi.actionSystem.DataKey
-import com.intellij.openapi.actionSystem.DataSink
-import com.intellij.openapi.actionSystem.DefaultActionGroup
-import com.intellij.openapi.actionSystem.UiDataProvider
+import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.progress.Task
+import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.project.DumbAwareAction
@@ -818,49 +811,57 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         val files = FileChooser.chooseFiles(descriptor, project, null)
         if (files.isEmpty()) return
 
-        val incoming = ArrayList<Note>()
-        for (vf in files) {
-            val file = File(vf.path)
-            val text = runCatching { file.readText() }.getOrNull() ?: continue
-            when (vf.extension?.lowercase()) {
-                "json" -> incoming.addAll(runCatching { NotesIO.parseJson(text) }.getOrDefault(emptyList()))
-                "md", "markdown" -> runCatching {
-                    NotesIO.parseMarkdown(text, file.nameWithoutExtension)
-                }.getOrNull()?.let { incoming.add(it) }
+        object : Task.Backgroundable(project, "Importing Notes", false) {
+            private val incoming = ArrayList<Note>()
+
+            override fun run(indicator: ProgressIndicator) {
+                for (vf in files) {
+                    val file = File(vf.path)
+                    val text = runCatching { file.readText() }.getOrNull() ?: continue
+                    when (vf.extension?.lowercase()) {
+                        "json" -> incoming.addAll(runCatching { NotesIO.parseJson(text) }.getOrDefault(emptyList()))
+                        "md", "markdown" -> runCatching {
+                            NotesIO.parseMarkdown(text, file.nameWithoutExtension)
+                        }.getOrNull()?.let { incoming.add(it) }
+                    }
+                }
             }
-        }
 
-        if (incoming.isEmpty()) {
-            Messages.showWarningDialog(project, "No valid notes were found in the selected files.", "Import Notes")
-            return
-        }
+            override fun onSuccess() {
+                if (incoming.isEmpty()) {
+                    Messages.showWarningDialog(project, "No valid notes were found in the selected files.", "Import Notes")
+                    return
+                }
 
-        var policy = ImportConflictPolicy.KEEP_BOTH
-        if (NotesIO.hasConflicts(service, incoming)) {
-            val choice = Messages.showDialog(
-                project,
-                "Some imported notes already exist. How should conflicts be handled?",
-                "Import Conflicts",
-                arrayOf("Keep Both", "Overwrite", "Skip"),
-                0,
-                Messages.getQuestionIcon()
-            )
-            policy = when (choice) {
-                1 -> ImportConflictPolicy.OVERWRITE
-                2 -> ImportConflictPolicy.SKIP
-                else -> ImportConflictPolicy.KEEP_BOTH
+                var policy = ImportConflictPolicy.KEEP_BOTH
+                if (NotesIO.hasConflicts(service, incoming)) {
+                    val choice = Messages.showDialog(
+                        project,
+                        "Some imported notes already exist. How should conflicts be handled?",
+                        "Import Conflicts",
+                        arrayOf("Keep Both", "Overwrite", "Skip"),
+                        0,
+                        Messages.getQuestionIcon()
+                    )
+                    policy = when (choice) {
+                        1 -> ImportConflictPolicy.OVERWRITE
+                        2 -> ImportConflictPolicy.SKIP
+                        else -> ImportConflictPolicy.KEEP_BOTH
+                    }
+                }
+
+                val summary = NotesIO.importNotes(service, incoming, policy)
+                SwingUtilities.invokeLater {
+                    Messages.showInfoMessage(
+                        project,
+                        "Imported ${summary.total} note(s):\n" +
+                            "Added: ${summary.added}, Overwritten: ${summary.overwritten}, " +
+                            "Kept both: ${summary.renamed}, Skipped: ${summary.skipped}",
+                        "Import Complete"
+                    )
+                }
             }
-        }
-
-        val summary = NotesIO.importNotes(service, incoming, policy)
-        reloadList()
-        Messages.showInfoMessage(
-            project,
-            "Imported ${summary.total} note(s):\n" +
-                "Added: ${summary.added}, Overwritten: ${summary.overwritten}, " +
-                "Kept both: ${summary.renamed}, Skipped: ${summary.skipped}",
-            "Import Complete"
-        )
+        }.queue()
     }
 
     private fun exportNotes() {
@@ -904,31 +905,63 @@ class NotesPanel(private val project: Project?) : JPanel(BorderLayout()), UiData
         val dir = chooseExportFolder() ?: return
         val fileName = if (notes.size == 1) sanitize(notes[0].displayTitle()) + ".json" else "notes-backup.json"
         val target = File(dir, fileName)
-        try {
-            target.writeText(NotesIO.toJsonBackup(notes))
-            Messages.showInfoMessage(project, "Exported ${notes.size} note(s) to\n${target.path}", "Export Complete")
-        } catch (e: IOException) {
-            Messages.showErrorDialog(project, "Could not write ${target.path}:\n${e.message}", "Export Failed")
-        }
+
+        object : Task.Backgroundable(project, "Exporting Notes", false) {
+            private var errorMsg: String? = null
+
+            override fun run(indicator: ProgressIndicator) {
+                try {
+                    target.writeText(NotesIO.toJsonBackup(notes))
+                } catch (e: IOException) {
+                    errorMsg = e.message
+                }
+            }
+
+            override fun onSuccess() {
+                SwingUtilities.invokeLater {
+                    if (errorMsg != null) {
+                        Messages.showErrorDialog(project, "Could not write ${target.path}:\n$errorMsg", "Export Failed")
+                    } else {
+                        Messages.showInfoMessage(project, "Exported ${notes.size} note(s) to\n${target.path}", "Export Complete")
+                    }
+                }
+            }
+        }.queue()
     }
 
     private fun exportMarkdown(notes: List<Note>) {
         val dir = chooseExportFolder() ?: return
-        val used = HashSet<String>()
-        try {
-            for (note in notes) {
-                val name = sanitize(note.displayTitle())
-                var candidate = "$name.md"
-                var i = 1
-                while (!used.add(candidate)) {
-                    candidate = "$name-${i++}.md"
+
+        object : Task.Backgroundable(project, "Exporting Notes", false) {
+            private var errorMsg: String? = null
+
+            override fun run(indicator: ProgressIndicator) {
+                val used = HashSet<String>()
+                try {
+                    for (note in notes) {
+                        val name = sanitize(note.displayTitle())
+                        var candidate = "$name.md"
+                        var i = 1
+                        while (!used.add(candidate)) {
+                            candidate = "$name-${i++}.md"
+                        }
+                        File(dir, candidate).writeText(NotesIO.noteToMarkdown(note))
+                    }
+                } catch (e: IOException) {
+                    errorMsg = e.message
                 }
-                File(dir, candidate).writeText(NotesIO.noteToMarkdown(note))
             }
-            Messages.showInfoMessage(project, "Exported ${notes.size} note(s) to\n${dir.path}", "Export Complete")
-        } catch (e: IOException) {
-            Messages.showErrorDialog(project, "Could not write to ${dir.path}:\n${e.message}", "Export Failed")
-        }
+
+            override fun onSuccess() {
+                SwingUtilities.invokeLater {
+                    if (errorMsg != null) {
+                        Messages.showErrorDialog(project, "Could not write to ${dir.path}:\n$errorMsg", "Export Failed")
+                    } else {
+                        Messages.showInfoMessage(project, "Exported ${notes.size} note(s) to\n${dir.path}", "Export Complete")
+                    }
+                }
+            }
+        }.queue()
     }
 
     private fun chooseExportFolder(): File? {
