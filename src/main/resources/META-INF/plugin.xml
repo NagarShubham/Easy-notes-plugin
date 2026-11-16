@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.snagar.easynotes</id>
     <name>Easy Notes</name>
-    <version>1.1.1</version>
+    <version>1.1.2</version>
     <vendor email="shubham786nagar@gmail.com" url="https://github.com/NagarShubham">Shubham Nagar</vendor>
 
     <description><![CDATA[
@@ -63,6 +63,11 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <p><b>1.1.2</b></p>
+        <ul>
+            <li>✨ <b>Faster & Smoother</b> &mdash; We’ve polished the experience under the hood. Importing and exporting your notes is now lightning-fast, and the interface stays perfectly fluid, so nothing gets in the way of your thoughts.</li>
+            <li>🛡️ <b>Rock-solid Reliability</b> &mdash; We’ve strengthened the foundation of Easy Notes to ensure your experience is as steady and dependable as it is fast.</li>
+        </ul>
         <p><b>1.1.1</b></p>
         <ul>
             <li>⚡ <b>Faster feel</b> &mdash; the notes list, search, and editor stay responsive as you type and switch notes.</li>
@@ -83,6 +88,7 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <notificationGroup id="Easy Notes" displayType="BALLOON"/>
+        <errorHandler implementation="com.snagar.easynotes.MyErrorReportSubmitter"/>
         <toolWindow id="Easy Notes"
                     anchor="right"
                     icon="/icons/toolwindow.svg"

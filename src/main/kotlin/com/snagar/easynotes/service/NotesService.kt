@@ -108,6 +108,16 @@ class NotesService : PersistentStateComponent<NotesService.State> {
         fireChanged()
     }
 
+    /** Marks multiple notes as changed, firing a single change event. */
+    fun touchNotes(notes: Collection<Note>) {
+        if (notes.isEmpty()) return
+        val now = System.currentTimeMillis()
+        for (note in notes) {
+            note.modifiedAt = now
+        }
+        fireChanged()
+    }
+
     fun deleteNotes(ids: Collection<String>) {
         val idSet = ids.toSet()
         if (state.notes.removeAll { it.id in idSet }) {

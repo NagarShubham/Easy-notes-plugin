@@ -182,10 +182,13 @@ internal object NotesIO {
         policy: ImportConflictPolicy
     ): ImportSummary {
         val summary = ImportSummary()
+        val toAdd = ArrayList<Note>()
+        val toTouch = ArrayList<Note>()
+
         for (note in incoming) {
             val existing = service.findNote(note.id)
             if (existing == null) {
-                service.addNote(note)
+                toAdd.add(note)
                 summary.added++
                 continue
             }
@@ -193,6 +196,7 @@ internal object NotesIO {
                 summary.skipped++
                 continue
             }
+
             when (policy) {
                 ImportConflictPolicy.SKIP -> summary.skipped++
                 ImportConflictPolicy.OVERWRITE -> {
@@ -201,16 +205,18 @@ internal object NotesIO {
                     existing.colorRgb = note.colorRgb
                     existing.pinned = note.pinned
                     existing.favorite = note.favorite
-                    service.touchNote(existing)
+                    toTouch.add(existing)
                     summary.overwritten++
                 }
                 ImportConflictPolicy.KEEP_BOTH -> {
                     note.id = UUID.randomUUID().toString()
-                    service.addNote(note)
+                    toAdd.add(note)
                     summary.renamed++
                 }
             }
         }
+        if (toTouch.isNotEmpty()) service.touchNotes(toTouch)
+        service.addNotes(toAdd)
         return summary
     }
 
